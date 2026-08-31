@@ -11,12 +11,22 @@ const parsePositiveInt = (value, fallback) => {
   return Number.isFinite(parsed) && parsed > 0 ? parsed : fallback
 }
 
-const servicePort = process.env.PORT || 3000
+const normalizeBasePath = (value) => {
+  if (!value || value === '/') return '/'
+  const withLeadingSlash = value.startsWith('/') ? value : `/${value}`
+  return withLeadingSlash.replace(/\/+$/, '') || '/'
+}
+
+const servicePort = parsePositiveInt(process.env.PORT, 3000)
 const sessionFolderPath = process.env.SESSIONS_PATH || './sessions'
 const enableLocalCallbackExample = parseBoolean(process.env.ENABLE_LOCAL_CALLBACK_EXAMPLE)
 const globalApiKey = process.env.API_KEY
 const allowInsecureNoAuth = parseBoolean(process.env.ALLOW_INSECURE_NO_AUTH)
 const baseWebhookURL = process.env.BASE_WEBHOOK_URL
+const webhookSecret = process.env.WEBHOOK_SECRET
+const webhookTimeoutMs = parsePositiveInt(process.env.WEBHOOK_TIMEOUT_MS, 5000)
+const webhookMaxAttempts = parsePositiveInt(process.env.WEBHOOK_MAX_ATTEMPTS, 4)
+const webhookRetryBaseMs = parsePositiveInt(process.env.WEBHOOK_RETRY_BASE_MS, 500)
 const maxAttachmentSize = parsePositiveInt(process.env.MAX_ATTACHMENT_SIZE, 10000000)
 const setMessagesAsSeen = parseBoolean(process.env.SET_MESSAGES_AS_SEEN)
 const disabledCallbacks = process.env.DISABLED_CALLBACKS ? process.env.DISABLED_CALLBACKS.split('|') : []
@@ -27,6 +37,7 @@ const webVersionCacheType = process.env.WEB_VERSION_CACHE_TYPE || 'none'
 const rateLimitMax = parsePositiveInt(process.env.RATE_LIMIT_MAX, 120)
 const rateLimitWindowMs = parsePositiveInt(process.env.RATE_LIMIT_WINDOW_MS, 60000)
 const maxSessions = parsePositiveInt(process.env.MAX_SESSIONS, 10)
+const shutdownTimeoutMs = parsePositiveInt(process.env.SHUTDOWN_TIMEOUT_MS, 30000)
 const recoverSessions = parseBoolean(process.env.RECOVER_SESSIONS)
 const chromeBin = process.env.CHROME_BIN || null
 const headless = process.env.HEADLESS ? parseBoolean(process.env.HEADLESS) : true
@@ -35,7 +46,7 @@ const logLevel = process.env.LOG_LEVEL || 'info'
 const enableWebHook = process.env.ENABLE_WEBHOOK ? parseBoolean(process.env.ENABLE_WEBHOOK) : true
 const enableWebSocket = parseBoolean(process.env.ENABLE_WEBSOCKET)
 const autoStartSessions = process.env.AUTO_START_SESSIONS ? parseBoolean(process.env.AUTO_START_SESSIONS) : true
-const basePath = process.env.BASE_PATH || '/'
+const basePath = normalizeBasePath(process.env.BASE_PATH)
 const trustProxy = parseBoolean(process.env.TRUST_PROXY)
 const proxyUrl = process.env.PROXY_URL || null
 const proxyUsername = process.env.PROXY_USERNAME ?? null
@@ -53,6 +64,10 @@ module.exports = {
   globalApiKey,
   allowInsecureNoAuth,
   baseWebhookURL,
+  webhookSecret,
+  webhookTimeoutMs,
+  webhookMaxAttempts,
+  webhookRetryBaseMs,
   maxAttachmentSize,
   setMessagesAsSeen,
   disabledCallbacks,
@@ -63,6 +78,7 @@ module.exports = {
   rateLimitMax,
   rateLimitWindowMs,
   maxSessions,
+  shutdownTimeoutMs,
   recoverSessions,
   chromeBin,
   headless,
