@@ -21,6 +21,12 @@ jobs:
           cache: npm
       - name: Refresh lockfile
         run: npm install --package-lock-only --ignore-scripts
+      - name: Production audit report
+        continue-on-error: true
+        run: npm audit --omit=dev --json
+      - name: Full audit report
+        continue-on-error: true
+        run: npm audit --json
       - name: Commit refreshed lockfile
         shell: bash
         run: |
