@@ -37,7 +37,7 @@ const triggerWebSocket = (sessionId, dataType, data) => {
   if (!server) return
 
   for (const ws of server.clients) {
-    if (ws.readyState === ws.OPEN) {
+    if (ws.readyState === 1) {
       ws.send(JSON.stringify({ dataType, data, sessionId }))
     }
   }
