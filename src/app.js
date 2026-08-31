@@ -41,9 +41,9 @@ operationalRoutes.get('/health/ready', healthController.ready)
 app.use(basePath, operationalRoutes)
 app.use(
   basePath,
-  requestSchemaValidation,
   createRequestSecurity(sessions),
   securityRateLimiter,
+  requestSchemaValidation,
   routes
 )
 
