@@ -1,15 +1,33 @@
 const request = require('supertest')
 
+const managedEnvKeys = [
+  'API_KEY',
+  'SESSIONS_PATH',
+  'ENABLE_WEB_UI',
+  'ALLOWED_ORIGINS',
+  'ENABLE_UNSAFE_RUN_METHOD',
+  'ENABLE_REMOTE_MEDIA_URL',
+  'ALLOW_INSECURE_NO_AUTH'
+]
+const originalEnv = Object.fromEntries(managedEnvKeys.map(key => [key, process.env[key]]))
+
 process.env.API_KEY = 'security_test_key'
 process.env.SESSIONS_PATH = './sessions_security_test'
-process.env.ENABLE_WEBHOOK = 'FALSE'
 process.env.ENABLE_WEB_UI = 'TRUE'
 process.env.ALLOWED_ORIGINS = 'https://trusted.example'
 process.env.ENABLE_UNSAFE_RUN_METHOD = 'FALSE'
 process.env.ENABLE_REMOTE_MEDIA_URL = 'FALSE'
+process.env.ALLOW_INSECURE_NO_AUTH = 'FALSE'
 
 const app = require('../src/app')
 jest.mock('qrcode-terminal')
+
+afterAll(() => {
+  for (const key of managedEnvKeys) {
+    if (originalEnv[key] === undefined) delete process.env[key]
+    else process.env[key] = originalEnv[key]
+  }
+})
 
 describe('security foundation', () => {
   it('keeps the liveness endpoint public', async () => {
@@ -27,9 +45,9 @@ describe('security foundation', () => {
     expect(response.body).toEqual({ success: false, error: 'Invalid API key' })
   })
 
-  it('disables generic runMethod routes by default', async () => {
+  it('disables generic runMethod routes by default, including case variants', async () => {
     const response = await request(app)
-      .post('/client/runMethod/example')
+      .post('/CLIENT/runMethod/example')
       .set('x-api-key', 'security_test_key')
       .send({ method: 'getChats' })
 
