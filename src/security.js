@@ -6,8 +6,6 @@ const {
   allowedOrigins,
   enableUnsafeRunMethod,
   enableRemoteMediaUrl,
-  enableSwaggerEndpoint,
-  enableWebUI,
   rateLimitMax,
   rateLimitWindowMs,
   maxSessions
@@ -25,8 +23,8 @@ const apiKeyMatches = value => Boolean(globalApiKey) && safeEqual(value, globalA
 
 const isPublicHttpPath = (req) => {
   if (req.method === 'GET' && req.path === '/ping') return true
-  if (enableWebUI && req.method === 'GET' && req.path.startsWith('/dashboard')) return true
-  if (enableSwaggerEndpoint && (req.method === 'GET' || req.method === 'HEAD') && req.path.startsWith('/api-docs')) return true
+  if (req.method === 'GET' && req.path.startsWith('/dashboard')) return true
+  if ((req.method === 'GET' || req.method === 'HEAD') && req.path.startsWith('/api-docs')) return true
   return false
 }
 
