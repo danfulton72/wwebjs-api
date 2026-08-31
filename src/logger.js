@@ -2,7 +2,22 @@ const { logLevel } = require('./config')
 const pino = require('pino')
 
 const logger = pino({
-  level: logLevel
+  level: logLevel,
+  redact: {
+    paths: [
+      'apiKey',
+      'globalApiKey',
+      'proxyPassword',
+      'webhookSecret',
+      '*.apiKey',
+      '*.globalApiKey',
+      '*.proxyPassword',
+      '*.webhookSecret',
+      'req.headers.x-api-key',
+      'headers.x-api-key'
+    ],
+    censor: '[REDACTED]'
+  }
 }, pino.destination(1, { sync: false }))
 
 logger.on('level-change', (lvl, val, prevLvl, prevVal) => {
