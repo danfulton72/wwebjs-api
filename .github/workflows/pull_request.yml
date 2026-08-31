@@ -28,8 +28,6 @@ jobs:
         run: npm run test:coverage
       - name: Generate application SBOM
         run: npm run sbom
-      - name: Audit production dependencies
-        run: npm run audit:prod
       - name: Upload coverage and application SBOM
         if: always()
         uses: actions/upload-artifact@ea165f8d65b6e75b540449e92b4886f43607fa02 # v4
@@ -40,18 +38,41 @@ jobs:
             sbom.cdx.json
           if-no-files-found: ignore
 
-  dependency-review:
-    name: Dependency Review
+  dependency-scan:
+    name: Dependency Scan
     runs-on: ubuntu-latest
-    permissions:
-      contents: read
     steps:
       - name: Checkout repository
         uses: actions/checkout@df4cb1c069e1874edd31b4311f1884172cec0e10 # v6.0.3
-      - name: Review dependency changes
-        uses: actions/dependency-review-action@a1d282b36b6f3519aa1f3fc636f609c47dddb294 # v5.0.0
+      - name: Use Node.js 24
+        uses: actions/setup-node@820762786026740c76f36085b0efc47a31fe5020
         with:
-          fail-on-severity: high
+          node-version: 24.x
+          cache: npm
+      - name: Install dependencies
+        run: npm ci
+      - name: Capture npm audit evidence
+        shell: bash
+        run: npm audit --omit=dev --json > npm-audit.json || true
+      - name: Scan dependency filesystem
+        uses: aquasecurity/trivy-action@ed142fd0673e97e23eac54620cfb913e5ce36c25 # v0.36.0
+        with:
+          scan-type: fs
+          scan-ref: .
+          scanners: vuln
+          format: table
+          exit-code: '1'
+          ignore-unfixed: true
+          severity: HIGH,CRITICAL
+      - name: Enforce npm production audit
+        run: npm run audit:prod
+      - name: Upload dependency scan evidence
+        if: always()
+        uses: actions/upload-artifact@ea165f8d65b6e75b540449e92b4886f43607fa02 # v4
+        with:
+          name: dependency-audit
+          path: npm-audit.json
+          if-no-files-found: ignore
 
   container-scan:
     name: Container Scan
