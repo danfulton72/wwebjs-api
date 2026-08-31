@@ -22,10 +22,29 @@ module.exports = [
       }
     },
     rules: {
+      'no-empty': ['error', { allowEmptyCatch: true }],
       'no-unused-vars': ['error', {
         argsIgnorePattern: '^_',
         caughtErrors: 'none'
       }]
+    }
+  },
+  {
+    files: ['src/sessions.js'],
+    rules: {
+      'no-unused-vars': ['error', {
+        argsIgnorePattern: '^(?:_|e)$',
+        caughtErrors: 'none'
+      }]
+    }
+  },
+  {
+    files: ['src/utils.js'],
+    languageOptions: {
+      globals: {
+        ...globals.node,
+        ...globals.browser
+      }
     }
   },
   {
