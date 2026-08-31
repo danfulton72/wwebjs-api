@@ -1,6 +1,3 @@
-# The version property is now optional in modern Docker Compose
-# version: '3.8'
-
 name: wwebjs-api
 
 services:
@@ -8,36 +5,35 @@ services:
     image: ghcr.io/danfulton72/wwebjs-api:latest
     container_name: wwebjs-api
     restart: always
+    stop_grace_period: 35s
     ports:
       - "${PORT:-3000}:${PORT:-3000}"
     env_file: .env
     volumes:
-      # Use a named Docker volume so WhatsApp sessions persist across
-      # container recreations / redeploys. The data lives in Docker-managed
-      # storage, not inside the repository directory.
       - wwebjs_sessions:/usr/src/app/sessions
     security_opt:
       - no-new-privileges:true
+    healthcheck:
+      test:
+        - CMD
+        - node
+        - -e
+        - >-
+          const r=process.env.BASE_PATH||'/';const b=r==='/'?'':'/'+r.replace(/^\/+|\/+$/g,'');
+          fetch('http://127.0.0.1:'+(process.env.PORT||3000)+b+'/health/ready')
+          .then(r=>process.exit(r.ok?0:1)).catch(()=>process.exit(1))
+      interval: 30s
+      timeout: 10s
+      retries: 3
+      start_period: 40s
     # Optional: route Chromium (WhatsApp Web) traffic through an outbound proxy.
-    # Set PROXY_URL (and optionally PROXY_USERNAME / PROXY_PASSWORD for HTTP
-    # Basic auth) in .env, or uncomment the block below to point at the
-    # bundled tinyproxy service.
+    # Set PROXY_URL (and optionally PROXY_USERNAME / PROXY_PASSWORD) in .env.
     # environment:
     #   PROXY_URL: http://tinyproxy:8888
-    #   # PROXY_USERNAME: api-key
-    #   # PROXY_PASSWORD: your-api-key
     # depends_on:
     #   - tinyproxy
-    # Optional healthcheck. /ping intentionally remains unauthenticated.
-    # healthcheck:
-    #   test: ["CMD", "node", "-e", "fetch('http://127.0.0.1:'+(process.env.PORT||3000)+'/ping').then(r=>process.exit(r.ok?0:1)).catch(()=>process.exit(1))"]
-    #   interval: 30s
-    #   timeout: 10s
-    #   retries: 3
-    #   start_period: 40s
 
-  # Optional: local HTTP proxy for testing the PROXY_URL feature end-to-end.
-  # Uncomment along with the api `environment` / `depends_on` blocks above.
+  # Optional proxy for local testing:
   # tinyproxy:
   #   image: vimagick/tinyproxy
   #   container_name: wwebjs-tinyproxy
@@ -45,9 +41,6 @@ services:
   #     - "8888:8888"
   #   environment:
   #     ALLOWED_NETWORKS: 0.0.0.0/0
-  #     # Uncomment to test the PROXY_USERNAME / PROXY_PASSWORD path.
-  #     BASIC_AUTH_USER: "api-key"
-  #     BASIC_AUTH_PASSWORD: "your-api-key"
   #   restart: unless-stopped
 
 volumes:
