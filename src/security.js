@@ -10,6 +10,7 @@ const {
   rateLimitWindowMs,
   maxSessions
 } = require('./config')
+const { sendError } = require('./errors')
 
 const safeEqual = (left, right) => {
   if (typeof left !== 'string' || typeof right !== 'string') return false
@@ -23,6 +24,8 @@ const apiKeyMatches = value => Boolean(globalApiKey) && safeEqual(value, globalA
 
 const isPublicHttpPath = (req) => {
   if (req.method === 'GET' && req.path === '/ping') return true
+  if (req.method === 'GET' && req.path === '/health/live') return true
+  if (req.method === 'GET' && req.path === '/health/ready') return true
   if (req.method === 'GET' && req.path.startsWith('/dashboard')) return true
   if ((req.method === 'GET' || req.method === 'HEAD') && req.path.startsWith('/api-docs')) return true
   return false
@@ -62,23 +65,27 @@ const createRequestSecurity = (sessions) => {
   return (req, res, next) => {
     if (!isPublicHttpPath(req)) {
       if (!globalApiKey && !allowInsecureNoAuth) {
-        return res.status(503).json({ success: false, error: 'API authentication is not configured' })
+        return sendError(res, 503, 'API authentication is not configured', {
+          code: 'AUTH_NOT_CONFIGURED'
+        })
       }
 
       if (globalApiKey && !apiKeyMatches(req.headers['x-api-key'])) {
-        return res.status(403).json({ success: false, error: 'Invalid API key' })
+        return sendError(res, 403, 'Invalid API key', { code: 'INVALID_API_KEY' })
       }
     }
 
     if (!enableUnsafeRunMethod && /^\/(client|chat|groupChat|message)\/runMethod\/[^/]+\/?$/i.test(req.path)) {
-      return res.status(404).json({ success: false, error: 'Endpoint disabled' })
+      return sendError(res, 404, 'Endpoint disabled', { code: 'ENDPOINT_DISABLED' })
     }
 
     if (!enableRemoteMediaUrl && req.body?.contentType === 'MessageMediaFromURL') {
-      return res.status(403).json({
-        success: false,
-        error: 'Remote media URL fetching is disabled. Upload media content directly or explicitly enable ENABLE_REMOTE_MEDIA_URL.'
-      })
+      return sendError(
+        res,
+        403,
+        'Remote media URL fetching is disabled. Upload media content directly or explicitly enable ENABLE_REMOTE_MEDIA_URL.',
+        { code: 'REMOTE_MEDIA_DISABLED' }
+      )
     }
 
     const startMatch = req.path.match(/^\/session\/start\/([\w-]+)\/?$/i)
@@ -86,7 +93,9 @@ const createRequestSecurity = (sessions) => {
       const sessionId = startMatch[1]
       if (!sessions.has(sessionId) && !startingSessions.has(sessionId)) {
         if (sessions.size + startingSessions.size >= maxSessions) {
-          return res.status(429).json({ success: false, error: 'Maximum session limit reached' })
+          return sendError(res, 429, 'Maximum session limit reached', {
+            code: 'SESSION_LIMIT_REACHED'
+          })
         }
 
         startingSessions.add(sessionId)
@@ -103,16 +112,16 @@ const createRequestSecurity = (sessions) => {
 const securityRateLimiter = rateLimiting({
   limit: rateLimitMax,
   windowMs: rateLimitWindowMs,
-  standardHeaders: 'draft-7',
+  standardHeaders: 'draft-8',
   legacyHeaders: false,
   skip: isPublicHttpPath,
-  message: { success: false, error: 'Rate limit exceeded' }
+  handler: (req, res) => sendError(res, 429, 'Rate limit exceeded', { code: 'RATE_LIMITED' })
 })
 
 module.exports = {
   apiKeyMatches,
+  createRequestSecurity,
   isAllowedOrigin,
   securityHeaders,
-  createRequestSecurity,
   securityRateLimiter
 }
