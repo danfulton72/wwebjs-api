@@ -37,6 +37,15 @@ const localCallbackSchema = z.object({
   sessionId: sessionIdSchema.optional()
 }).passthrough()
 
+const httpUrlSchema = z.string().url().refine((input) => {
+  try {
+    const protocol = new URL(input).protocol
+    return protocol === 'http:' || protocol === 'https:'
+  } catch {
+    return false
+  }
+}, 'Remote media URL must use http or https')
+
 const sendMessageSchema = z.object({
   chatId: whatsappIdSchema,
   contentType: z.enum([
@@ -66,10 +75,7 @@ const sendMessageSchema = z.object({
       }).passthrough().safeParse(value.content)
       break
     case 'MessageMediaFromURL':
-      result = z.string().url().refine((input) => {
-        const protocol = new URL(input).protocol
-        return protocol === 'http:' || protocol === 'https:'
-      }, 'Remote media URL must use http or https').safeParse(value.content)
+      result = httpUrlSchema.safeParse(value.content)
       break
     case 'Location':
       result = z.object({
