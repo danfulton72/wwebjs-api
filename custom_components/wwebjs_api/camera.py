@@ -52,7 +52,9 @@ class WWebJSSessionQrCamera(WWebJSSessionEntity, Camera):
 
     def __init__(self, coordinator, entry: ConfigEntry, session_id: str) -> None:
         """Initialize a pairing QR camera."""
-        super().__init__(coordinator, entry, session_id)
+        Camera.__init__(self)
+        WWebJSSessionEntity.__init__(self, coordinator, entry, session_id)
+        self.content_type = "image/png"
         self._attr_unique_id = f"{entry.entry_id}_{session_id}_pairing_qr"
 
     async def async_camera_image(
