@@ -1,4 +1,4 @@
-FROM node:22-bookworm-slim AS base
+FROM node:24-bookworm-slim AS base
 
 ENV CHROME_BIN="/usr/local/bin/chromium-safe" \
     PUPPETEER_EXECUTABLE_PATH="/usr/local/bin/chromium-safe" \
@@ -51,4 +51,4 @@ USER node
 
 EXPOSE 3000
 
-CMD ["npm", "start"]
+CMD ["node", "server.js"]
