@@ -1,4 +1,4 @@
-"""Tests for WWebJS API Home Assistant session entities."""
+"""Tests for WhatsApp HA Home Assistant session entities."""
 
 from unittest.mock import AsyncMock, patch
 
@@ -6,9 +6,9 @@ from homeassistant.const import CONF_URL
 from homeassistant.helpers import entity_registry as er
 from pytest_homeassistant_custom_component.common import MockConfigEntry
 
-from custom_components.wwebjs_api.api import WWebJSApiClient
-from custom_components.wwebjs_api.camera import WWebJSSessionQrCamera
-from custom_components.wwebjs_api.const import CONF_API_KEY, DOMAIN
+from custom_components.whatsapp.api import WWebJSApiClient
+from custom_components.whatsapp.camera import WWebJSSessionQrCamera
+from custom_components.whatsapp.const import CONF_API_KEY, DOMAIN
 
 URL = "http://wwebjs.local:3000"
 API_KEY = "test-api-key"
@@ -18,7 +18,7 @@ async def test_session_entities_and_dynamic_discovery(hass) -> None:
     """Test session sensors, QR cameras, and sessions discovered after setup."""
     entry = MockConfigEntry(
         domain=DOMAIN,
-        title="WWebJS API",
+        title="WhatsApp HA",
         data={CONF_URL: URL, CONF_API_KEY: API_KEY},
         unique_id=URL.lower(),
     )

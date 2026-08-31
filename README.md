@@ -223,11 +223,21 @@ Set `ENABLE_WEB_UI=TRUE` and visit `/dashboard/`. The dashboard itself can load 
 
 ## Home Assistant
 
-The repository includes a HACS-compatible Home Assistant custom integration at `custom_components/wwebjs_api`.
+The HACS integration is named **WhatsApp HA** (`whatsapp_ha`) and is installed at Home Assistant's standard custom integration location:
 
-Add this repository to HACS as a custom **Integration**, install **WWebJS API**, restart Home Assistant, then add the integration from **Settings → Devices & services**. Supply the reachable WWebJS API URL and API key. The config flow verifies credentials against the API before creating the entry.
+```text
+custom_components/whatsapp
+```
 
-Home Assistant compatibility is continuously checked with both Hassfest and HACS validation in GitHub Actions.
+The Home Assistant domain is `whatsapp`. Add this repository to HACS as a custom **Integration**, install **WhatsApp HA**, restart Home Assistant, then add **WhatsApp HA** from **Settings → Devices & services**. Supply the reachable WWebJS API URL and API key. The config flow verifies credentials before creating the entry.
+
+For YAML import during the transition, use the `whatsapp:` key. UI/config-flow setup remains the recommended path.
+
+### Upgrade from v0.2.x
+
+Version 0.3.0 changes the Home Assistant domain from `wwebjs_api` to `whatsapp`. Home Assistant does not automatically transfer config entries between different integration domains. Before or after upgrading, remove the old **WWebJS API** config entry and add **WhatsApp HA** again from **Settings → Devices & services**. The backend WWebJS API sessions are not deleted by removing the Home Assistant config entry.
+
+Home Assistant compatibility is continuously checked with executable config-flow/entity tests, Hassfest, and HACS validation in GitHub Actions.
 
 ## OpenAPI documentation
 
