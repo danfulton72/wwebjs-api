@@ -30,7 +30,6 @@ def session_device_info(entry: ConfigEntry, session_id: str) -> DeviceInfo:
         manufacturer=MANUFACTURER,
         model=MODEL_SESSION,
         configuration_url=entry.data[CONF_URL],
-        via_device=(DOMAIN, entry.entry_id),
     )
 
 
