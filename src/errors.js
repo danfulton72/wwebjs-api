@@ -1,4 +1,5 @@
 const crypto = require('crypto')
+const { logger } = require('./logger')
 
 class AppError extends Error {
   constructor (statusCode, code, message, details = undefined) {
@@ -30,6 +31,7 @@ const requestContext = (req, res, next) => {
     : crypto.randomUUID()
 
   req.requestId = requestId
+  req.log = logger.child({ requestId })
   res.setHeader('X-Request-Id', requestId)
   next()
 }
@@ -68,7 +70,7 @@ const errorHandler = (error, req, res, next) => {
     })
   }
 
-  req.log?.error?.({ err: error, requestId: req.requestId }, 'Unhandled request error')
+  req.log.error({ err: error }, 'Unhandled request error')
   return sendError(res, 500, 'Internal server error')
 }
 
