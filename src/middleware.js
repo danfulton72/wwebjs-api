@@ -21,7 +21,7 @@ const apikey = async (req, res, next) => {
   if (globalApiKey) {
     const apiKey = req.headers['x-api-key']
     if (!apiKey || apiKey !== globalApiKey) {
-      return sendErrorResponse(res, 403, 'Invalid API key')
+      return sendErrorResponse(res, 403, 'Invalid API key', 'INVALID_API_KEY')
     }
   }
   next()
@@ -47,7 +47,7 @@ const sessionNameValidation = async (req, res, next) => {
         }
       }
     */
-    return sendErrorResponse(res, 422, 'Session should be alphanumerical or -')
+    return sendErrorResponse(res, 422, 'Session should be alphanumerical or -', 'VALIDATION_ERROR')
   }
   next()
 }
@@ -64,7 +64,7 @@ const sessionValidation = async (req, res, next) => {
         }
       }
     */
-    return sendErrorResponse(res, 404, validation.message)
+    return sendErrorResponse(res, 404, validation.message, 'NOT_FOUND')
   }
   next()
 }
@@ -72,11 +72,9 @@ const sessionValidation = async (req, res, next) => {
 const rateLimiter = rateLimiting({
   limit: rateLimitMax,
   windowMs: rateLimitWindowMs,
-  message: "You can't make any more requests at the moment. Try again later",
-  // Use real client IP when behind reverse proxy
-  keyGenerator: (req) => {
-    return req.ip || req.connection.remoteAddress
-  }
+  standardHeaders: 'draft-8',
+  legacyHeaders: false,
+  handler: (req, res) => sendErrorResponse(res, 429, 'Rate limit exceeded', 'RATE_LIMITED')
 })
 
 const sessionSwagger = async (req, res, next) => {
