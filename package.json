@@ -51,10 +51,10 @@
   },
   "repository": {
     "type": "git",
-    "url": "https://github.com/avoylenko/wwebjs-api.git"
+    "url": "https://github.com/danfulton72/wwebjs-api.git"
   },
   "bugs": {
-    "url": "https://github.com/avoylenko/wwebjs-api/issues"
+    "url": "https://github.com/danfulton72/wwebjs-api/issues"
   },
-  "homepage": "https://github.com/avoylenko/wwebjs-api"
+  "homepage": "https://github.com/danfulton72/wwebjs-api"
 }
