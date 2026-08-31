@@ -1,5 +1,5 @@
 // Load environment variables from .env file
-require('dotenv').config({ path: process.env.ENV_PATH || '.env' })
+require('dotenv').config({ path: process.env.ENV_PATH || '.env', quiet: true })
 
 const parseBoolean = (value, fallback = false) => {
   if (value == null || value === '') return fallback
