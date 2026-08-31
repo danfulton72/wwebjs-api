@@ -1,0 +1,21 @@
+{
+  "config": {
+    "step": {
+      "user": {
+        "title": "Connect to WWebJS API",
+        "description": "Enter the URL and API key for your WWebJS API server.",
+        "data": {
+          "url": "Server URL",
+          "api_key": "API key"
+        }
+      }
+    },
+    "error": {
+      "cannot_connect": "Failed to connect",
+      "invalid_auth": "Invalid API key"
+    },
+    "abort": {
+      "already_configured": "This WWebJS API server is already configured"
+    }
+  }
+}
