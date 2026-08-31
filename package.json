@@ -5,10 +5,14 @@
   "main": "server.js",
   "scripts": {
     "start": "node server.js",
-    "test": "jest --runInBand",
+    "test": "npm run test:unit",
+    "test:unit": "jest --runInBand --config jest.config.js",
+    "test:integration": "jest --runInBand --config jest.integration.config.js",
+    "test:coverage": "jest --runInBand --config jest.config.js --coverage",
     "lint": "eslint .",
     "audit:prod": "npm audit --omit=dev --audit-level=high",
-    "check": "npm run lint && npm test && npm run audit:prod",
+    "sbom": "npm sbom --sbom-format=cyclonedx > sbom.cdx.json",
+    "check": "npm run lint && npm run test:coverage && npm run audit:prod",
     "swagger": "node swagger.js"
   },
   "dependencies": {
