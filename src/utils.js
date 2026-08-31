@@ -1,43 +1,118 @@
+const crypto = require('crypto')
 const axios = require('axios')
-const { globalApiKey, disabledCallbacks, enableWebHook } = require('./config')
+const {
+  disabledCallbacks,
+  enableWebHook,
+  webhookSecret,
+  webhookTimeoutMs,
+  webhookMaxAttempts,
+  webhookRetryBaseMs
+} = require('./config')
 const { logger } = require('./logger')
+const { sendError } = require('./errors')
 const ChatFactory = require('whatsapp-web.js/src/factories/ChatFactory')
 const Client = require('whatsapp-web.js').Client
 const { Chat, Message } = require('whatsapp-web.js/src/structures')
 
-// Trigger webhook endpoint
+const delay = ms => new Promise(resolve => setTimeout(resolve, ms))
+
+const getWebhookSecret = (sessionId) => {
+  const sessionSecret = process.env[`${sessionId.toUpperCase()}_WEBHOOK_SECRET`]
+  return sessionSecret || webhookSecret
+}
+
+const webhookSignature = (secret, timestamp, body) => {
+  const digest = crypto
+    .createHmac('sha256', secret)
+    .update(`${timestamp}.${body}`)
+    .digest('hex')
+  return `sha256=${digest}`
+}
+
+const shouldRetryWebhook = (error) => {
+  const status = error.response?.status
+  if (!status) return true
+  return status === 408 || status === 429 || status >= 500
+}
+
+const deliverWebhook = async (webhookURL, sessionId, dataType, data) => {
+  const secret = getWebhookSecret(sessionId)
+  if (!secret) {
+    logger.error({ sessionId, dataType }, 'Webhook delivery skipped because no webhook signing secret is configured')
+    return
+  }
+
+  const eventId = crypto.randomUUID()
+  const timestamp = new Date().toISOString()
+  const payload = { eventId, timestamp, dataType, data, sessionId }
+  const body = JSON.stringify(payload)
+  const headers = {
+    'content-type': 'application/json',
+    'x-wwebjs-event-id': eventId,
+    'x-wwebjs-timestamp': timestamp,
+    'x-wwebjs-signature': webhookSignature(secret, timestamp, body)
+  }
+
+  for (let attempt = 1; attempt <= webhookMaxAttempts; attempt++) {
+    try {
+      await axios.post(webhookURL, body, {
+        headers,
+        timeout: webhookTimeoutMs,
+        maxRedirects: 0,
+        validateStatus: status => status >= 200 && status < 300
+      })
+      logger.debug({ sessionId, dataType, eventId, attempt }, 'Webhook delivered')
+      return
+    } catch (error) {
+      const finalAttempt = attempt === webhookMaxAttempts
+      if (finalAttempt || !shouldRetryWebhook(error)) {
+        logger.error({
+          sessionId,
+          dataType,
+          eventId,
+          attempt,
+          status: error.response?.status,
+          err: error
+        }, 'Webhook delivery failed')
+        return
+      }
+
+      const backoffMs = Math.min(webhookRetryBaseMs * (2 ** (attempt - 1)), 10000)
+      logger.warn({
+        sessionId,
+        dataType,
+        eventId,
+        attempt,
+        backoffMs,
+        status: error.response?.status
+      }, 'Webhook delivery failed; retrying')
+      await delay(backoffMs)
+    }
+  }
+}
+
 const triggerWebhook = (webhookURL, sessionId, dataType, data) => {
-  if (enableWebHook) {
-    axios.post(webhookURL, { dataType, data, sessionId }, { headers: { 'x-api-key': globalApiKey } })
-      .then(() => logger.debug({ sessionId, dataType, data: data || '' }, `Webhook message sent to ${webhookURL}`))
-      .catch(error => logger.error({ sessionId, dataType, err: error, data: data || '' }, `Failed to send webhook message to ${webhookURL}`))
-  }
+  if (!enableWebHook || !webhookURL) return
+  void deliverWebhook(webhookURL, sessionId, dataType, data)
 }
 
-// Function to send a response with error status and message
-const sendErrorResponse = (res, status, error) => {
+const sendErrorResponse = (res, status, error, code) => {
   const message = error instanceof Error ? error.message : error
-  if (error instanceof Error) {
-    logger.error({ err: error }, message)
-  }
-  res.status(status).json({ success: false, error: message })
+  if (error instanceof Error) logger.error({ err: error }, message)
+  return sendError(res, status, message, { code })
 }
 
-// Function to wait for a specific item not to be null
 const waitForNestedObject = (rootObj, nestedPath, maxWaitTime = 10000, interval = 100) => {
   const start = Date.now()
   return new Promise((resolve, reject) => {
     const checkObject = () => {
       const nestedObj = nestedPath.split('.').reduce((obj, key) => obj ? obj[key] : undefined, rootObj)
       if (nestedObj) {
-        // Nested object exists, resolve the promise
         resolve()
       } else if (Date.now() - start > maxWaitTime) {
-        // Maximum wait time exceeded, reject the promise
         logger.error('Timed out waiting for nested object')
         reject(new Error('Timeout waiting for nested object'))
       } else {
-        // Nested object not yet created, continue waiting
         setTimeout(checkObject, interval)
       }
     }
@@ -81,7 +156,6 @@ const exposeFunctionIfAbsent = async (page, name, fn) => {
 }
 
 const patchWWebLibrary = async (client) => {
-  // MUST be run after the 'ready' event fired
   Client.prototype.getChats = async function (searchOptions = {}) {
     const chats = await this.pupPage.evaluate(async (searchOptions) => {
       return await window.WWebJS.getChats({ ...searchOptions })
@@ -132,7 +206,6 @@ const patchWWebLibrary = async (client) => {
   }
 
   await client.pupPage.evaluate(() => {
-    // hotfix for https://github.com/pedroslopez/whatsapp-web.js/pull/3643
     window.WWebJS.getChats = async (searchOptions = {}) => {
       const chatFilter = (c) => {
         if (searchOptions && searchOptions.unread === true && c.unreadCount === 0) {
@@ -145,7 +218,6 @@ const patchWWebLibrary = async (client) => {
       }
 
       const allChats = window.require('WAWebCollections').Chat.getModelsArray()
-
       const filteredChats = allChats.filter(chatFilter)
 
       return await Promise.all(
@@ -156,13 +228,15 @@ const patchWWebLibrary = async (client) => {
 }
 
 module.exports = {
-  triggerWebhook,
-  sendErrorResponse,
-  waitForNestedObject,
-  isEventEnabled,
-  sendMessageSeenStatus,
   decodeBase64,
-  sleep,
+  deliverWebhook,
   exposeFunctionIfAbsent,
-  patchWWebLibrary
+  isEventEnabled,
+  patchWWebLibrary,
+  sendErrorResponse,
+  sendMessageSeenStatus,
+  sleep,
+  triggerWebhook,
+  webhookSignature,
+  waitForNestedObject
 }
