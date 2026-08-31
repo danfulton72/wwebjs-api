@@ -68,9 +68,13 @@ async def test_session_entities_and_dynamic_discovery(hass) -> None:
         alpha_status = registry_entry(f"{entry.entry_id}_alpha_status")
         registry_entry(f"{entry.entry_id}_alpha_pairing_qr")
 
-        assert hass.states[count.entity_id].state == "1"
-        assert hass.states[alpha_status.entity_id].state == "CONNECTED"
-        assert hass.states[alpha_status.entity_id].attributes["connected"] is True
+        count_state = hass.states.get(count.entity_id)
+        alpha_state = hass.states.get(alpha_status.entity_id)
+        assert count_state is not None
+        assert alpha_state is not None
+        assert count_state.state == "1"
+        assert alpha_state.state == "CONNECTED"
+        assert alpha_state.attributes["connected"] is True
 
         camera = WWebJSSessionQrCamera(entry.runtime_data, entry, "alpha")
         assert await camera.async_camera_image() == qr_bytes
@@ -83,6 +87,10 @@ async def test_session_entities_and_dynamic_discovery(hass) -> None:
         beta_status = registry_entry(f"{entry.entry_id}_beta_status")
         registry_entry(f"{entry.entry_id}_beta_pairing_qr")
 
-        assert hass.states[count.entity_id].state == "2"
-        assert hass.states[beta_status.entity_id].state == "session_not_connected"
-        assert hass.states[beta_status.entity_id].attributes["connected"] is False
+        count_state = hass.states.get(count.entity_id)
+        beta_state = hass.states.get(beta_status.entity_id)
+        assert count_state is not None
+        assert beta_state is not None
+        assert count_state.state == "2"
+        assert beta_state.state == "session_not_connected"
+        assert beta_state.attributes["connected"] is False
