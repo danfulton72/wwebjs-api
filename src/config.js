@@ -1,40 +1,57 @@
 // Load environment variables from .env file
 require('dotenv').config({ path: process.env.ENV_PATH || '.env' })
 
-// setup global const
+const parseBoolean = (value, fallback = false) => {
+  if (value == null || value === '') return fallback
+  return String(value).toLowerCase() === 'true'
+}
+
+const parsePositiveInt = (value, fallback) => {
+  const parsed = Number.parseInt(value, 10)
+  return Number.isFinite(parsed) && parsed > 0 ? parsed : fallback
+}
+
 const servicePort = process.env.PORT || 3000
 const sessionFolderPath = process.env.SESSIONS_PATH || './sessions'
-const enableLocalCallbackExample = (process.env.ENABLE_LOCAL_CALLBACK_EXAMPLE || '').toLowerCase() === 'true'
+const enableLocalCallbackExample = parseBoolean(process.env.ENABLE_LOCAL_CALLBACK_EXAMPLE)
 const globalApiKey = process.env.API_KEY
+const allowInsecureNoAuth = parseBoolean(process.env.ALLOW_INSECURE_NO_AUTH)
 const baseWebhookURL = process.env.BASE_WEBHOOK_URL
-const maxAttachmentSize = parseInt(process.env.MAX_ATTACHMENT_SIZE) || 10000000
-const setMessagesAsSeen = (process.env.SET_MESSAGES_AS_SEEN || '').toLowerCase() === 'true'
+const maxAttachmentSize = parsePositiveInt(process.env.MAX_ATTACHMENT_SIZE, 10000000)
+const setMessagesAsSeen = parseBoolean(process.env.SET_MESSAGES_AS_SEEN)
 const disabledCallbacks = process.env.DISABLED_CALLBACKS ? process.env.DISABLED_CALLBACKS.split('|') : []
-const enableSwaggerEndpoint = (process.env.ENABLE_SWAGGER_ENDPOINT || '').toLowerCase() === 'true'
-const enableWebUI = (process.env.ENABLE_WEB_UI || '').toLowerCase() === 'true'
+const enableSwaggerEndpoint = parseBoolean(process.env.ENABLE_SWAGGER_ENDPOINT)
+const enableWebUI = parseBoolean(process.env.ENABLE_WEB_UI)
 const webVersion = process.env.WEB_VERSION
 const webVersionCacheType = process.env.WEB_VERSION_CACHE_TYPE || 'none'
-const rateLimitMax = parseInt(process.env.RATE_LIMIT_MAX) || 1000
-const rateLimitWindowMs = parseInt(process.env.RATE_LIMIT_WINDOW_MS) || 1000
-const recoverSessions = (process.env.RECOVER_SESSIONS || '').toLowerCase() === 'true'
+const rateLimitMax = parsePositiveInt(process.env.RATE_LIMIT_MAX, 120)
+const rateLimitWindowMs = parsePositiveInt(process.env.RATE_LIMIT_WINDOW_MS, 60000)
+const maxSessions = parsePositiveInt(process.env.MAX_SESSIONS, 10)
+const recoverSessions = parseBoolean(process.env.RECOVER_SESSIONS)
 const chromeBin = process.env.CHROME_BIN || null
-const headless = process.env.HEADLESS ? (process.env.HEADLESS).toLowerCase() === 'true' : true
-const releaseBrowserLock = process.env.RELEASE_BROWSER_LOCK ? (process.env.RELEASE_BROWSER_LOCK).toLowerCase() === 'true' : true
+const headless = process.env.HEADLESS ? parseBoolean(process.env.HEADLESS) : true
+const releaseBrowserLock = process.env.RELEASE_BROWSER_LOCK ? parseBoolean(process.env.RELEASE_BROWSER_LOCK) : true
 const logLevel = process.env.LOG_LEVEL || 'info'
-const enableWebHook = process.env.ENABLE_WEBHOOK ? (process.env.ENABLE_WEBHOOK).toLowerCase() === 'true' : true
-const enableWebSocket = process.env.ENABLE_WEBSOCKET ? (process.env.ENABLE_WEBSOCKET).toLowerCase() === 'true' : false
-const autoStartSessions = process.env.AUTO_START_SESSIONS ? (process.env.AUTO_START_SESSIONS).toLowerCase() === 'true' : true
+const enableWebHook = process.env.ENABLE_WEBHOOK ? parseBoolean(process.env.ENABLE_WEBHOOK) : true
+const enableWebSocket = parseBoolean(process.env.ENABLE_WEBSOCKET)
+const autoStartSessions = process.env.AUTO_START_SESSIONS ? parseBoolean(process.env.AUTO_START_SESSIONS) : true
 const basePath = process.env.BASE_PATH || '/'
-const trustProxy = process.env.TRUST_PROXY ? (process.env.TRUST_PROXY).toLowerCase() === 'true' : false
+const trustProxy = parseBoolean(process.env.TRUST_PROXY)
 const proxyUrl = process.env.PROXY_URL || null
 const proxyUsername = process.env.PROXY_USERNAME ?? null
 const proxyPassword = process.env.PROXY_PASSWORD ?? null
+const allowedOrigins = process.env.ALLOWED_ORIGINS
+  ? process.env.ALLOWED_ORIGINS.split(',').map(origin => origin.trim()).filter(Boolean)
+  : []
+const enableUnsafeRunMethod = parseBoolean(process.env.ENABLE_UNSAFE_RUN_METHOD)
+const enableRemoteMediaUrl = parseBoolean(process.env.ENABLE_REMOTE_MEDIA_URL)
 
 module.exports = {
   servicePort,
   sessionFolderPath,
   enableLocalCallbackExample,
   globalApiKey,
+  allowInsecureNoAuth,
   baseWebhookURL,
   maxAttachmentSize,
   setMessagesAsSeen,
@@ -45,6 +62,7 @@ module.exports = {
   webVersionCacheType,
   rateLimitMax,
   rateLimitWindowMs,
+  maxSessions,
   recoverSessions,
   chromeBin,
   headless,
@@ -57,5 +75,8 @@ module.exports = {
   trustProxy,
   proxyUrl,
   proxyUsername,
-  proxyPassword
+  proxyPassword,
+  allowedOrigins,
+  enableUnsafeRunMethod,
+  enableRemoteMediaUrl
 }
