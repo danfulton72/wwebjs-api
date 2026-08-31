@@ -24,7 +24,7 @@ jobs:
           fetch-depth: 0
           ref: main
 
-      - name: Confirm this push belongs to a merged pull request
+      - name: Resolve source merge
         id: merged_pr
         env:
           GH_TOKEN: ${{ github.token }}
@@ -32,27 +32,46 @@ jobs:
         run: |
           set -euo pipefail
 
-          if gh api \
-            --header 'Accept: application/vnd.github+json' \
-            "/repos/${GITHUB_REPOSITORY}/releases?per_page=100" \
-            --jq ".[] | select((.body // \"\") | contains(\"source-merge:${GITHUB_SHA}\")) | .tag_name" \
-            | grep -q .; then
-            echo "This merge commit already has a release; nothing to do."
-            echo "release=false" >> "$GITHUB_OUTPUT"
-            exit 0
-          fi
-
+          source_merge_sha="$GITHUB_SHA"
           merged_pr_count="$(gh api \
             --header 'Accept: application/vnd.github+json' \
-            "/repos/${GITHUB_REPOSITORY}/commits/${GITHUB_SHA}/pulls" \
+            "/repos/${GITHUB_REPOSITORY}/commits/${source_merge_sha}/pulls" \
             --jq '[.[] | select(.merged_at != null and .base.ref == "main")] | length')"
 
           if [ "$merged_pr_count" -eq 0 ]; then
-            echo "Push is not associated with a merged pull request; skipping release."
+            retry_sha="$(git log -1 --pretty=%B | sed -nE 's/.*release-retry:([0-9a-f]{40}).*/\1/p' | head -n 1)"
+
+            if [ -z "$retry_sha" ]; then
+              echo "Push is not associated with a merged pull request; skipping release."
+              echo "release=false" >> "$GITHUB_OUTPUT"
+              exit 0
+            fi
+
+            retry_pr_count="$(gh api \
+              --header 'Accept: application/vnd.github+json' \
+              "/repos/${GITHUB_REPOSITORY}/commits/${retry_sha}/pulls" \
+              --jq '[.[] | select(.merged_at != null and .base.ref == "main")] | length')"
+
+            if [ "$retry_pr_count" -eq 0 ]; then
+              echo "Release retry SHA is not a merged pull request commit; refusing retry."
+              exit 1
+            fi
+
+            source_merge_sha="$retry_sha"
+            echo "Recovering release for merged commit ${source_merge_sha}."
+          fi
+
+          if gh api \
+            --header 'Accept: application/vnd.github+json' \
+            "/repos/${GITHUB_REPOSITORY}/releases?per_page=100" \
+            --jq ".[] | select((.body // \"\") | contains(\"source-merge:${source_merge_sha}\")) | .tag_name" \
+            | grep -q .; then
+            echo "Merged commit ${source_merge_sha} already has a release; nothing to do."
             echo "release=false" >> "$GITHUB_OUTPUT"
             exit 0
           fi
 
+          echo "source_merge_sha=${source_merge_sha}" >> "$GITHUB_OUTPUT"
           echo "release=true" >> "$GITHUB_OUTPUT"
 
       - name: Resolve release version
@@ -138,9 +157,13 @@ jobs:
         env:
           GH_TOKEN: ${{ github.token }}
           VERSION: ${{ steps.version.outputs.version }}
+          SOURCE_MERGE_SHA: ${{ steps.merged_pr.outputs.source_merge_sha }}
         shell: bash
         run: |
           set -euo pipefail
+
+          git config user.name "github-actions[bot]"
+          git config user.email "41898282+github-actions[bot]@users.noreply.github.com"
 
           tag="v${VERSION}"
           target_sha="$(git rev-parse HEAD)"
@@ -161,7 +184,7 @@ jobs:
           release_body="$(gh release view "$tag" --json body --jq '.body // ""')"
           {
             printf '%s\n\n' "$release_body"
-            printf '<!-- source-merge:%s -->\n' "$GITHUB_SHA"
+            printf '<!-- source-merge:%s -->\n' "$SOURCE_MERGE_SHA"
           } > "$RUNNER_TEMP/release-notes.md"
 
           gh release edit "$tag" --notes-file "$RUNNER_TEMP/release-notes.md"
