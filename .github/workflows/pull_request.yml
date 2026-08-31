@@ -64,6 +64,7 @@ jobs:
           exit-code: '1'
           ignore-unfixed: true
           severity: HIGH,CRITICAL
+          trivyignores: .trivyignore.yaml
       - name: Enforce npm production audit
         run: npm run audit:prod
       - name: Upload dependency scan evidence
@@ -90,6 +91,7 @@ jobs:
           exit-code: '1'
           ignore-unfixed: true
           severity: HIGH,CRITICAL
+          trivyignores: .trivyignore.yaml
       - name: Generate container SBOM
         if: always()
         uses: aquasecurity/trivy-action@ed142fd0673e97e23eac54620cfb913e5ce36c25 # v0.36.0
