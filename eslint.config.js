@@ -30,7 +30,7 @@ module.exports = [
     }
   },
   {
-    files: ['src/sessions.js'],
+    files: ['src/wwebjs/legacy/sessionRuntime.js'],
     rules: {
       'no-unused-vars': ['error', {
         argsIgnorePattern: '^(?:_|e)$',
@@ -39,7 +39,7 @@ module.exports = [
     }
   },
   {
-    files: ['src/utils.js'],
+    files: ['src/wwebjs/privateInternals.js'],
     languageOptions: {
       globals: {
         ...globals.node,
