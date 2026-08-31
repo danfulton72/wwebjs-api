@@ -72,7 +72,7 @@ const createRequestSecurity = (sessions) => {
       }
     }
 
-    if (!enableUnsafeRunMethod && /^\/(client|chat|groupChat|message)\/runMethod\/[^/]+\/?$/.test(req.path)) {
+    if (!enableUnsafeRunMethod && /^\/(client|chat|groupChat|message)\/runMethod\/[^/]+\/?$/i.test(req.path)) {
       return res.status(404).json({ success: false, error: 'Endpoint disabled' })
     }
 
@@ -83,7 +83,7 @@ const createRequestSecurity = (sessions) => {
       })
     }
 
-    const startMatch = req.path.match(/^\/session\/start\/([\w-]+)\/?$/)
+    const startMatch = req.path.match(/^\/session\/start\/([\w-]+)\/?$/i)
     if (req.method === 'GET' && startMatch) {
       const sessionId = startMatch[1]
       if (!sessions.has(sessionId) && !startingSessions.has(sessionId)) {
