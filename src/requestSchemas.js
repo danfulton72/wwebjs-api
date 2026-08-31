@@ -1,5 +1,6 @@
 const { z } = require('zod')
 const { sendError } = require('./errors')
+const { sessions } = require('./sessions')
 
 const sessionIdSchema = z.string()
   .min(1)
@@ -136,15 +137,20 @@ const requestSchemaValidation = (req, res, next) => {
   const normalizedPath = req.path.toLowerCase()
   const segments = req.path.split('/').filter(Boolean)
   const resource = segments[0]?.toLowerCase()
+  const sessionId = segments[2]
 
-  if (resourcesWithSessionId.has(resource) && segments.length >= 3) {
-    const sessionResult = sessionIdSchema.safeParse(segments[2])
+  if (resourcesWithSessionId.has(resource) && sessionId) {
+    const sessionResult = sessionIdSchema.safeParse(sessionId)
     if (!sessionResult.success) {
       return sendError(res, 422, 'Request validation failed', {
         code: 'VALIDATION_ERROR',
         details: formatIssues(sessionResult.error.issues)
       })
     }
+
+    // Preserve legacy resource semantics: for non-session resources, let the
+    // route-level session middleware return 404 before validating the body.
+    if (resource !== 'session' && !sessions.has(sessionId)) return next()
   }
 
   const bodyRule = bodySchemas.find(rule => (
@@ -161,7 +167,8 @@ const requestSchemaValidation = (req, res, next) => {
     })
   }
 
-  req.body = bodyResult.data
+  // Validation is non-transforming: keep the original object so field order,
+  // unknown passthrough properties and legacy controller semantics are stable.
   next()
 }
 
