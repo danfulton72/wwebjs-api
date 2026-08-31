@@ -1,0 +1,167 @@
+name: Release merged changes
+
+on:
+  push:
+    branches:
+      - main
+
+permissions:
+  contents: write
+  pull-requests: read
+
+concurrency:
+  group: release-main
+  cancel-in-progress: false
+
+jobs:
+  release:
+    name: Release merged pull request
+    runs-on: ubuntu-latest
+    steps:
+      - name: Checkout main
+        uses: actions/checkout@df4cb1c069e1874edd31b4311f1884172cec0e10 # v6.0.3
+        with:
+          fetch-depth: 0
+          ref: main
+
+      - name: Confirm this push belongs to a merged pull request
+        id: merged_pr
+        env:
+          GH_TOKEN: ${{ github.token }}
+        shell: bash
+        run: |
+          set -euo pipefail
+
+          if gh api \
+            --header 'Accept: application/vnd.github+json' \
+            "/repos/${GITHUB_REPOSITORY}/releases?per_page=100" \
+            --jq ".[] | select((.body // \"\") | contains(\"source-merge:${GITHUB_SHA}\")) | .tag_name" \
+            | grep -q .; then
+            echo "This merge commit already has a release; nothing to do."
+            echo "release=false" >> "$GITHUB_OUTPUT"
+            exit 0
+          fi
+
+          merged_pr_count="$(gh api \
+            --header 'Accept: application/vnd.github+json' \
+            "/repos/${GITHUB_REPOSITORY}/commits/${GITHUB_SHA}/pulls" \
+            --jq '[.[] | select(.merged_at != null and .base.ref == "main")] | length')"
+
+          if [ "$merged_pr_count" -eq 0 ]; then
+            echo "Push is not associated with a merged pull request; skipping release."
+            echo "release=false" >> "$GITHUB_OUTPUT"
+            exit 0
+          fi
+
+          echo "release=true" >> "$GITHUB_OUTPUT"
+
+      - name: Resolve release version
+        if: steps.merged_pr.outputs.release == 'true'
+        id: version
+        env:
+          GH_TOKEN: ${{ github.token }}
+        shell: bash
+        run: |
+          set -euo pipefail
+
+          gh release list --limit 100 --json tagName > "$RUNNER_TEMP/releases.json"
+
+          python - <<'PY'
+          import json
+          import os
+          import re
+          from pathlib import Path
+
+          manifest_path = Path("custom_components/wwebjs_api/manifest.json")
+          manifest = json.loads(manifest_path.read_text())
+          manifest_version = str(manifest["version"])
+
+          pattern = re.compile(r"^v?(\d+)\.(\d+)\.(\d+)$")
+
+          def parse(value: str) -> tuple[int, int, int]:
+              match = pattern.fullmatch(value.strip())
+              if not match:
+                  raise SystemExit(
+                      f"Version {value!r} is not supported; expected semantic version X.Y.Z"
+                  )
+              return tuple(int(part) for part in match.groups())
+
+          manifest_tuple = parse(manifest_version)
+          releases = json.loads(Path(os.environ["RUNNER_TEMP"]).joinpath("releases.json").read_text())
+          release_versions = []
+          for release in releases:
+              tag = str(release.get("tagName", ""))
+              if pattern.fullmatch(tag):
+                  release_versions.append(parse(tag))
+
+          latest_release = max(release_versions) if release_versions else None
+
+          # The manifest is used when it advances the release sequence. If it
+          # conflicts with an existing/equal/newer release number, the release
+          # sequence takes precedence and we advance its patch number.
+          if latest_release is None or manifest_tuple > latest_release:
+              target = manifest_tuple
+          else:
+              target = (
+                  latest_release[0],
+                  latest_release[1],
+                  latest_release[2] + 1,
+              )
+
+          version = ".".join(str(part) for part in target)
+          manifest_changed = version != manifest_version
+
+          if manifest_changed:
+              manifest["version"] = version
+              manifest_path.write_text(json.dumps(manifest, indent=2) + "\n")
+
+          with open(os.environ["GITHUB_OUTPUT"], "a", encoding="utf-8") as output:
+              output.write(f"version={version}\n")
+              output.write(f"manifest_changed={'true' if manifest_changed else 'false'}\n")
+          PY
+
+      - name: Synchronize manifest version
+        if: steps.merged_pr.outputs.release == 'true' && steps.version.outputs.manifest_changed == 'true'
+        env:
+          VERSION: ${{ steps.version.outputs.version }}
+        shell: bash
+        run: |
+          set -euo pipefail
+          git config user.name "github-actions[bot]"
+          git config user.email "41898282+github-actions[bot]@users.noreply.github.com"
+          git add custom_components/wwebjs_api/manifest.json
+          git commit -m "chore(release): sync manifest to ${VERSION} [skip release]"
+          git push origin HEAD:main
+
+      - name: Create tag and GitHub release
+        if: steps.merged_pr.outputs.release == 'true'
+        env:
+          GH_TOKEN: ${{ github.token }}
+          VERSION: ${{ steps.version.outputs.version }}
+        shell: bash
+        run: |
+          set -euo pipefail
+
+          tag="v${VERSION}"
+          target_sha="$(git rev-parse HEAD)"
+
+          if git rev-parse "$tag" >/dev/null 2>&1 || gh release view "$tag" >/dev/null 2>&1; then
+            echo "Release/tag ${tag} already exists; refusing to overwrite it."
+            exit 1
+          fi
+
+          git tag -a "$tag" "$target_sha" -m "Release ${tag}"
+          git push origin "$tag"
+
+          gh release create "$tag" \
+            --target "$target_sha" \
+            --title "$tag" \
+            --generate-notes
+
+          release_body="$(gh release view "$tag" --json body --jq '.body // ""')"
+          {
+            printf '%s\n\n' "$release_body"
+            printf '<!-- source-merge:%s -->\n' "$GITHUB_SHA"
+          } > "$RUNNER_TEMP/release-notes.md"
+
+          gh release edit "$tag" --notes-file "$RUNNER_TEMP/release-notes.md"
