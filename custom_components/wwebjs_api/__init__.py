@@ -2,6 +2,8 @@
 
 from __future__ import annotations
 
+import logging
+
 import voluptuous as vol
 
 from homeassistant import config_entries
@@ -16,13 +18,15 @@ from .api import WWebJSApiClient
 from .const import CONF_API_KEY, DOMAIN
 from .coordinator import WWebJSDataUpdateCoordinator
 
+_LOGGER = logging.getLogger(__name__)
+
 PLATFORMS = (Platform.SENSOR, Platform.CAMERA)
 
 type WWebJSApiConfigEntry = ConfigEntry[WWebJSDataUpdateCoordinator]
 
 CONFIG_SCHEMA = vol.Schema(
     {
-        DOMAIN: vol.Schema(
+        vol.Optional(DOMAIN): vol.Schema(
             {
                 vol.Required(CONF_URL): cv.string,
                 vol.Required(CONF_API_KEY): cv.string,
@@ -36,6 +40,10 @@ CONFIG_SCHEMA = vol.Schema(
 async def async_setup(hass: HomeAssistant, config: ConfigType) -> bool:
     """Import legacy configuration.yaml settings into a config entry."""
     if yaml_config := config.get(DOMAIN):
+        _LOGGER.warning(
+            "WWebJS API configuration.yaml setup is deprecated and will be imported "
+            "into the UI; remove the wwebjs_api YAML block after the config entry appears"
+        )
         hass.async_create_task(
             hass.config_entries.flow.async_init(
                 DOMAIN,
