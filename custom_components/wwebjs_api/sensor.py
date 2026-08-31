@@ -86,7 +86,9 @@ class WWebJSSessionStatusSensor(WWebJSSessionEntity, SensorEntity):
     @property
     def native_value(self) -> str:
         """Return the latest state reported by whatsapp-web.js."""
-        data = self.coordinator.data[self.session_id]
+        data = self.coordinator.data.get(self.session_id)
+        if data is None:
+            return "unknown"
         if data.state:
             return data.state
         if data.message:
@@ -96,7 +98,9 @@ class WWebJSSessionStatusSensor(WWebJSSessionEntity, SensorEntity):
     @property
     def extra_state_attributes(self) -> dict[str, str | bool]:
         """Return useful session diagnostics."""
-        data = self.coordinator.data[self.session_id]
+        data = self.coordinator.data.get(self.session_id)
+        if data is None:
+            return {"session_id": self.session_id}
         return {
             "session_id": self.session_id,
             "connected": data.success,
