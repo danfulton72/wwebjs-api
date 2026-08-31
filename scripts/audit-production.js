@@ -26,7 +26,7 @@ try {
 } catch (error) {
   console.error(result.stdout)
   console.error(result.stderr)
-  throw new Error(`Unable to parse npm audit output: ${error.message}`)
+  throw new Error(`Unable to parse npm audit output: ${error.message}`, { cause: error })
 }
 
 const vulnerabilities = report.vulnerabilities || {}
