@@ -24,7 +24,7 @@ if (allowedOrigins.length > 0) {
       if (!origin || allowedOrigins.includes('*') || allowedOrigins.includes(origin)) {
         return callback(null, true)
       }
-      callback(new Error('Origin not allowed by CORS policy'))
+      callback(null, false)
     },
     credentials: !allowedOrigins.includes('*')
   }))
