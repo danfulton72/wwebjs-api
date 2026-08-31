@@ -1,3 +1,4 @@
+const fs = require('fs')
 const app = require('./src/app')
 const {
   servicePort,
@@ -8,11 +9,12 @@ const {
   globalApiKey,
   allowInsecureNoAuth,
   maxSessions,
-  allowedOrigins
+  allowedOrigins,
+  sessionFolderPath
 } = require('./src/config')
 const { logger } = require('./src/logger')
 const { handleUpgrade } = require('./src/websocket')
-const { restoreSessions } = require('./src/sessions')
+const { setupSession } = require('./src/sessions')
 
 if (!globalApiKey && !allowInsecureNoAuth) {
   logger.fatal('API_KEY is not configured. Refusing to start without authentication. Set ALLOW_INSECURE_NO_AUTH=TRUE only for isolated development environments.')
@@ -28,6 +30,27 @@ if (!baseWebhookURL && enableWebHook) {
   process.exit(1)
 }
 
+const restoreSessionsBounded = async () => {
+  await fs.promises.mkdir(sessionFolderPath, { recursive: true })
+  const files = await fs.promises.readdir(sessionFolderPath)
+  const sessionIds = files
+    .map(file => file.match(/^session-([\w-]+)$/))
+    .filter(Boolean)
+    .map(match => match[1])
+
+  if (sessionIds.length > maxSessions) {
+    logger.warn({ discovered: sessionIds.length, maxSessions }, 'Stored sessions exceed MAX_SESSIONS; only the first configured maximum will be restored')
+  }
+
+  for (const sessionId of sessionIds.slice(0, maxSessions)) {
+    logger.info({ sessionId }, 'Restoring stored session')
+    const result = await setupSession(sessionId)
+    if (!result.success) {
+      logger.error({ sessionId, error: result.message }, 'Failed to restore stored session')
+    }
+  }
+}
+
 const server = app.listen(servicePort, () => {
   logger.info({
     port: servicePort,
@@ -40,8 +63,9 @@ const server = app.listen(servicePort, () => {
   }, 'Server started')
 
   if (autoStartSessions) {
-    logger.info('Starting all sessions')
-    restoreSessions()
+    restoreSessionsBounded().catch(error => {
+      logger.error({ err: error }, 'Failed to restore stored sessions')
+    })
   }
 })
 
