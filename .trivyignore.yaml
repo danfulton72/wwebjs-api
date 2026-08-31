@@ -1,0 +1,6 @@
+vulnerabilities:
+  - id: GHSA-jmr9-qjv8-65gv
+    purls:
+      - "pkg:npm/extract-zip@2.0.1"
+    expired_at: 2026-11-29
+    statement: "Inherited through whatsapp-web.js/Puppeteer. Trivy lists 2.0.2 as fixed, but npm publishes no 2.0.2 release; revisit on upstream dependency update or before expiry."
