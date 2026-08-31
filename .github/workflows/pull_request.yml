@@ -1,4 +1,4 @@
-name: CI/CD Pipeline for Pull Requests to Main
+name: Quality
 
 on:
   pull_request:
@@ -10,10 +10,11 @@ permissions:
 
 jobs:
   validate:
+    name: Validate
     runs-on: ubuntu-latest
     steps:
       - name: Checkout repository
-        uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1
+        uses: actions/checkout@df4cb1c069e1874edd31b4311f1884172cec0e10 # v6.0.3
       - name: Use Node.js 24
         uses: actions/setup-node@820762786026740c76f36085b0efc47a31fe5020
         with:
@@ -23,10 +24,63 @@ jobs:
         run: npm ci
       - name: Lint
         run: npm run lint
-      - name: Run tests
-        run: npm test
-        timeout-minutes: 5
+      - name: Deterministic tests with coverage
+        run: npm run test:coverage
+      - name: Generate application SBOM
+        run: npm run sbom
       - name: Audit production dependencies
-        run: npm audit --omit=dev --audit-level=moderate
-      - name: Audit full dependency graph for high severity issues
-        run: npm audit --audit-level=high
+        run: npm run audit:prod
+      - name: Upload coverage and application SBOM
+        if: always()
+        uses: actions/upload-artifact@ea165f8d65b6e75b540449e92b4886f43607fa02 # v4
+        with:
+          name: quality-evidence
+          path: |
+            coverage/
+            sbom.cdx.json
+          if-no-files-found: ignore
+
+  dependency-review:
+    name: Dependency Review
+    runs-on: ubuntu-latest
+    permissions:
+      contents: read
+    steps:
+      - name: Checkout repository
+        uses: actions/checkout@df4cb1c069e1874edd31b4311f1884172cec0e10 # v6.0.3
+      - name: Review dependency changes
+        uses: actions/dependency-review-action@a1d282b36b6f3519aa1f3fc636f609c47dddb294 # v5.0.0
+        with:
+          fail-on-severity: high
+
+  container-scan:
+    name: Container Scan
+    runs-on: ubuntu-latest
+    steps:
+      - name: Checkout repository
+        uses: actions/checkout@df4cb1c069e1874edd31b4311f1884172cec0e10 # v6.0.3
+      - name: Build scan image
+        run: docker build --tag wwebjs-api:scan .
+      - name: Scan image for vulnerabilities
+        uses: aquasecurity/trivy-action@ed142fd0673e97e23eac54620cfb913e5ce36c25 # v0.36.0
+        with:
+          image-ref: wwebjs-api:scan
+          format: table
+          exit-code: '1'
+          ignore-unfixed: true
+          severity: HIGH,CRITICAL
+      - name: Generate container SBOM
+        if: always()
+        uses: aquasecurity/trivy-action@ed142fd0673e97e23eac54620cfb913e5ce36c25 # v0.36.0
+        with:
+          image-ref: wwebjs-api:scan
+          format: cyclonedx
+          output: container-sbom.cdx.json
+          exit-code: '0'
+      - name: Upload container SBOM
+        if: always()
+        uses: actions/upload-artifact@ea165f8d65b6e75b540449e92b4886f43607fa02 # v4
+        with:
+          name: container-sbom
+          path: container-sbom.cdx.json
+          if-no-files-found: ignore
