@@ -2,8 +2,8 @@
   "config": {
     "step": {
       "user": {
-        "title": "Connect to WWebJS API",
-        "description": "Connect Home Assistant to your WWebJS API server. Sessions will be discovered automatically.",
+        "title": "Connect WhatsApp HA",
+        "description": "Connect WhatsApp HA to your WWebJS API server. Sessions will be discovered automatically.",
         "data": {
           "url": "Server URL",
           "api_key": "API key"
@@ -14,7 +14,7 @@
         }
       },
       "reconfigure": {
-        "title": "Reconfigure WWebJS API",
+        "title": "Reconfigure WhatsApp HA",
         "description": "Update the server URL or API key. The connection is tested before the entry is saved.",
         "data": {
           "url": "Server URL",
@@ -22,7 +22,7 @@
         }
       },
       "reauth_confirm": {
-        "title": "Re-authenticate WWebJS API",
+        "title": "Re-authenticate WhatsApp HA",
         "description": "The saved API key was rejected. Enter the current API key for the WWebJS API server.",
         "data": {
           "api_key": "API key"
@@ -37,8 +37,8 @@
       "already_configured": "This WWebJS API server is already configured",
       "cannot_connect": "The YAML configuration could not be imported because the WWebJS API server could not be reached",
       "invalid_auth": "The YAML configuration could not be imported because the API key was rejected",
-      "reauth_successful": "The WWebJS API key was updated successfully",
-      "reconfigure_successful": "The WWebJS API connection was updated successfully"
+      "reauth_successful": "The WhatsApp HA API key was updated successfully",
+      "reconfigure_successful": "The WhatsApp HA connection was updated successfully"
     }
   },
   "entity": {

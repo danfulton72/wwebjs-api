@@ -1,4 +1,4 @@
-"""Home Assistant integration for WWebJS API."""
+"""Home Assistant integration for WhatsApp HA."""
 
 from __future__ import annotations
 
@@ -41,8 +41,8 @@ async def async_setup(hass: HomeAssistant, config: ConfigType) -> bool:
     """Import legacy configuration.yaml settings into a config entry."""
     if yaml_config := config.get(DOMAIN):
         _LOGGER.warning(
-            "WWebJS API configuration.yaml setup is deprecated and will be imported "
-            "into the UI; remove the wwebjs_api YAML block after the config entry appears"
+            "WhatsApp HA configuration.yaml setup is deprecated and will be imported "
+            "into the UI; remove the whatsapp YAML block after the config entry appears"
         )
         hass.async_create_task(
             hass.config_entries.flow.async_init(
@@ -55,7 +55,7 @@ async def async_setup(hass: HomeAssistant, config: ConfigType) -> bool:
 
 
 async def async_setup_entry(hass: HomeAssistant, entry: WWebJSApiConfigEntry) -> bool:
-    """Set up WWebJS API from a config entry."""
+    """Set up WhatsApp HA from a config entry."""
     client = WWebJSApiClient(
         async_get_clientsession(hass),
         entry.data[CONF_URL],
@@ -70,5 +70,5 @@ async def async_setup_entry(hass: HomeAssistant, entry: WWebJSApiConfigEntry) ->
 
 
 async def async_unload_entry(hass: HomeAssistant, entry: WWebJSApiConfigEntry) -> bool:
-    """Unload a WWebJS API config entry."""
+    """Unload a WhatsApp HA config entry."""
     return await hass.config_entries.async_unload_platforms(entry, PLATFORMS)

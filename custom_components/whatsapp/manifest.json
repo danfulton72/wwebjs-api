@@ -1,11 +1,11 @@
 {
-  "domain": "wwebjs_api",
-  "name": "WWebJS API",
+  "domain": "whatsapp",
+  "name": "WhatsApp HA",
   "codeowners": ["@danfulton72"],
   "config_flow": true,
   "documentation": "https://github.com/danfulton72/wwebjs-api#home-assistant",
   "integration_type": "hub",
   "iot_class": "local_polling",
   "issue_tracker": "https://github.com/danfulton72/wwebjs-api/issues",
-  "version": "0.2.0"
+  "version": "0.3.0"
 }

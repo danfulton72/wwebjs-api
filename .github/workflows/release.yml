@@ -91,7 +91,7 @@ jobs:
           import re
           from pathlib import Path
 
-          manifest_path = Path("custom_components/wwebjs_api/manifest.json")
+          manifest_path = Path("custom_components/whatsapp/manifest.json")
           manifest = json.loads(manifest_path.read_text())
           manifest_version = str(manifest["version"])
 
@@ -115,9 +115,6 @@ jobs:
 
           latest_release = max(release_versions) if release_versions else None
 
-          # The manifest is used when it advances the release sequence. If it
-          # conflicts with an existing/equal/newer release number, the release
-          # sequence takes precedence and we advance its patch number.
           if latest_release is None or manifest_tuple > latest_release:
               target = manifest_tuple
           else:
@@ -148,7 +145,7 @@ jobs:
           set -euo pipefail
           git config user.name "github-actions[bot]"
           git config user.email "41898282+github-actions[bot]@users.noreply.github.com"
-          git add custom_components/wwebjs_api/manifest.json
+          git add custom_components/whatsapp/manifest.json
           git commit -m "chore(release): sync manifest to ${VERSION} [skip release]"
           git push origin HEAD:main
 

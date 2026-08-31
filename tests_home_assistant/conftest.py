@@ -1,4 +1,4 @@
-"""Shared fixtures for WWebJS API Home Assistant tests."""
+"""Shared fixtures for WhatsApp HA Home Assistant tests."""
 
 import pytest
 
