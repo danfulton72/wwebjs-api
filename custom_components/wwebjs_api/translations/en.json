@@ -3,19 +3,57 @@
     "step": {
       "user": {
         "title": "Connect to WWebJS API",
-        "description": "Enter the URL and API key for your WWebJS API server.",
+        "description": "Connect Home Assistant to your WWebJS API server. Sessions will be discovered automatically.",
         "data": {
           "url": "Server URL",
+          "api_key": "API key"
+        },
+        "data_description": {
+          "url": "Base URL reachable from Home Assistant, for example http://192.168.1.20:3000.",
+          "api_key": "The API_KEY configured on the WWebJS API server."
+        }
+      },
+      "reconfigure": {
+        "title": "Reconfigure WWebJS API",
+        "description": "Update the server URL or API key. The connection is tested before the entry is saved.",
+        "data": {
+          "url": "Server URL",
+          "api_key": "API key"
+        }
+      },
+      "reauth_confirm": {
+        "title": "Re-authenticate WWebJS API",
+        "description": "The saved API key was rejected. Enter the current API key for the WWebJS API server.",
+        "data": {
           "api_key": "API key"
         }
       }
     },
     "error": {
-      "cannot_connect": "Failed to connect",
+      "cannot_connect": "Failed to connect to the WWebJS API server",
       "invalid_auth": "Invalid API key"
     },
     "abort": {
-      "already_configured": "This WWebJS API server is already configured"
+      "already_configured": "This WWebJS API server is already configured",
+      "cannot_connect": "The YAML configuration could not be imported because the WWebJS API server could not be reached",
+      "invalid_auth": "The YAML configuration could not be imported because the API key was rejected",
+      "reauth_successful": "The WWebJS API key was updated successfully",
+      "reconfigure_successful": "The WWebJS API connection was updated successfully"
+    }
+  },
+  "entity": {
+    "sensor": {
+      "sessions": {
+        "name": "Sessions"
+      },
+      "status": {
+        "name": "Status"
+      }
+    },
+    "camera": {
+      "pairing_qr": {
+        "name": "Pairing QR code"
+      }
     }
   }
 }
