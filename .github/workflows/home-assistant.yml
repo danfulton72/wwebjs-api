@@ -15,12 +15,30 @@ permissions:
   contents: read
 
 jobs:
+  ha-tests:
+    name: Config flow and entities
+    runs-on: ubuntu-latest
+    timeout-minutes: 15
+    steps:
+      - name: Checkout repository
+        uses: actions/checkout@df4cb1c069e1874edd31b4311f1884172cec0e10 # v6.0.3
+      - name: Set up Python 3.14
+        uses: actions/setup-python@a309ff8b426b58ec0e2a45f0f869d46889d02405 # v6.2.0
+        with:
+          python-version: "3.14"
+      - name: Install Home Assistant test dependencies
+        run: python -m pip install -r requirements_home_assistant_test.txt
+      - name: Run Home Assistant tests
+        run: python -m pytest -c tests_home_assistant/pytest.ini tests_home_assistant
+
   hassfest:
     name: Hassfest
     runs-on: ubuntu-latest
     steps:
       - name: Checkout repository
         uses: actions/checkout@df4cb1c069e1874edd31b4311f1884172cec0e10 # v6.0.3
+      - name: Compile custom integration
+        run: python3 -m compileall -q custom_components/wwebjs_api
       - name: Validate Home Assistant integration
         uses: home-assistant/actions/hassfest@a7c616ce81ccda50150bf1595786c71b1883fabb
 
