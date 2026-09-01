@@ -17,6 +17,7 @@ from homeassistant.helpers.typing import ConfigType
 from .api import WWebJSApiClient
 from .const import CONF_API_KEY, DOMAIN
 from .coordinator import WWebJSDataUpdateCoordinator
+from .services import async_register_services
 
 _LOGGER = logging.getLogger(__name__)
 
@@ -38,7 +39,9 @@ CONFIG_SCHEMA = vol.Schema(
 
 
 async def async_setup(hass: HomeAssistant, config: ConfigType) -> bool:
-    """Import legacy configuration.yaml settings into a config entry."""
+    """Set up WhatsApp HA and import legacy configuration.yaml settings."""
+    await async_register_services(hass)
+
     if yaml_config := config.get(DOMAIN):
         _LOGGER.warning(
             "WhatsApp HA configuration.yaml setup is deprecated and will be imported "

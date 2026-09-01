@@ -1,0 +1,7 @@
+{
+  "services": {
+    "search_contacts": {
+      "service": "mdi:account-search"
+    }
+  }
+}

@@ -70,6 +70,22 @@ class WWebJSApiClient:
             raise WWebJSApiError("invalid_response")
         return [str(session_id) for session_id in sessions]
 
+    async def async_get_contacts(self, session_id: str) -> list[dict[str, Any]]:
+        """Return JSON contacts for one WWebJS session."""
+        safe_session_id = quote(session_id, safe="")
+        payload = await self._async_get_json(
+            f"/client/getContacts/{safe_session_id}"
+        )
+        if not payload.get("success"):
+            raise WWebJSApiError(str(payload.get("error") or "api_error"))
+
+        contacts = payload.get("contacts", [])
+        if not isinstance(contacts, list) or not all(
+            isinstance(contact, dict) for contact in contacts
+        ):
+            raise WWebJSApiError("invalid_response")
+        return contacts
+
     async def async_get_session_status(self, session_id: str) -> dict[str, Any]:
         """Return the status payload for one WWebJS session."""
         safe_session_id = quote(session_id, safe="")

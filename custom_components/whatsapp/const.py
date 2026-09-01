@@ -9,3 +9,8 @@ DEFAULT_SCAN_INTERVAL = timedelta(seconds=30)
 MANUFACTURER = "WhatsApp HA"
 MODEL_API = "WWebJS REST API"
 MODEL_SESSION = "WhatsApp Web session"
+
+SERVICE_SEARCH_CONTACTS = "search_contacts"
+ATTR_CONFIG_ENTRY_ID = "config_entry_id"
+ATTR_SESSION_ID = "session_id"
+ATTR_PATTERN = "pattern"
