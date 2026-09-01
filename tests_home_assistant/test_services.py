@@ -10,7 +10,6 @@ from pytest_homeassistant_custom_component.common import MockConfigEntry
 
 from custom_components.whatsapp.api import WWebJSApiClient
 from custom_components.whatsapp.const import (
-    ATTR_CONFIG_ENTRY_ID,
     ATTR_PATTERN,
     ATTR_SESSION_ID,
     CONF_API_KEY,
@@ -68,13 +67,19 @@ CONTACTS_API_RESPONSE = {
 }
 
 
-async def _setup_entry(hass) -> MockConfigEntry:
+async def _setup_entry(
+    hass,
+    *,
+    url: str = URL,
+    sessions: list[str] | None = None,
+) -> MockConfigEntry:
     """Create and load one WhatsApp HA config entry."""
+    session_ids = sessions or ["alpha"]
     entry = MockConfigEntry(
         domain=DOMAIN,
         title="WhatsApp HA",
-        data={CONF_URL: URL, CONF_API_KEY: API_KEY},
-        unique_id=URL.lower(),
+        data={CONF_URL: url, CONF_API_KEY: API_KEY},
+        unique_id=url.lower(),
     )
     entry.add_to_hass(hass)
 
@@ -82,7 +87,7 @@ async def _setup_entry(hass) -> MockConfigEntry:
         patch.object(
             WWebJSApiClient,
             "async_get_sessions",
-            new=AsyncMock(return_value=["alpha"]),
+            new=AsyncMock(return_value=session_ids),
         ),
         patch.object(
             WWebJSApiClient,
@@ -102,13 +107,13 @@ async def _setup_entry(hass) -> MockConfigEntry:
     return entry
 
 
-async def test_search_contacts_preserves_all_matching_attributes(hass) -> None:
-    """Test matching contacts preserve the complete API response attributes."""
+async def test_search_contacts_uses_configured_connection_automatically(hass) -> None:
+    """Test the service uses the integration connection without a user field."""
     entry = await _setup_entry(hass)
     response_mock = AsyncMock(return_value=CONTACTS_API_RESPONSE)
 
     with patch.object(
-        WWebJSApiClient,
+        entry.runtime_data.client,
         "async_get_contacts_response",
         response_mock,
     ):
@@ -116,7 +121,6 @@ async def test_search_contacts_preserves_all_matching_attributes(hass) -> None:
             DOMAIN,
             SERVICE_SEARCH_CONTACTS,
             {
-                ATTR_CONFIG_ENTRY_ID: entry.entry_id,
                 ATTR_SESSION_ID: "alpha",
                 ATTR_PATTERN: "James|447350471200",
             },
@@ -132,8 +136,95 @@ async def test_search_contacts_preserves_all_matching_attributes(hass) -> None:
         "count": 2,
         "contacts": CONTACTS_API_RESPONSE["contacts"],
     }
-    assert response["contacts"][0] == CONTACTS_API_RESPONSE["contacts"][0]
-    assert response["contacts"][1] == CONTACTS_API_RESPONSE["contacts"][1]
+
+
+async def test_search_contacts_routes_to_connection_owning_session(hass) -> None:
+    """Test multiple configured APIs are resolved from the requested session."""
+    first = await _setup_entry(
+        hass,
+        url="http://first-wwebjs.local:3000",
+        sessions=["alpha"],
+    )
+    second = await _setup_entry(
+        hass,
+        url="http://second-wwebjs.local:3000",
+        sessions=["beta"],
+    )
+
+    first_mock = AsyncMock(return_value=CONTACTS_API_RESPONSE)
+    second_mock = AsyncMock(return_value=CONTACTS_API_RESPONSE)
+
+    with (
+        patch.object(
+            first.runtime_data.client,
+            "async_get_contacts_response",
+            first_mock,
+        ),
+        patch.object(
+            second.runtime_data.client,
+            "async_get_contacts_response",
+            second_mock,
+        ),
+    ):
+        response = await hass.services.async_call(
+            DOMAIN,
+            SERVICE_SEARCH_CONTACTS,
+            {
+                ATTR_SESSION_ID: "beta",
+                ATTR_PATTERN: "James",
+            },
+            blocking=True,
+            return_response=True,
+        )
+
+    first_mock.assert_not_awaited()
+    second_mock.assert_awaited_once_with("beta")
+    assert response["count"] == 1
+    assert response["contacts"] == [CONTACTS_API_RESPONSE["contacts"][1]]
+
+
+async def test_search_contacts_rejects_ambiguous_session_connection(hass) -> None:
+    """Test the service does not guess when two APIs own the same session ID."""
+    first = await _setup_entry(
+        hass,
+        url="http://first-wwebjs.local:3000",
+        sessions=["shared"],
+    )
+    second = await _setup_entry(
+        hass,
+        url="http://second-wwebjs.local:3000",
+        sessions=["shared"],
+    )
+
+    first_mock = AsyncMock(return_value=CONTACTS_API_RESPONSE)
+    second_mock = AsyncMock(return_value=CONTACTS_API_RESPONSE)
+
+    with (
+        patch.object(
+            first.runtime_data.client,
+            "async_get_contacts_response",
+            first_mock,
+        ),
+        patch.object(
+            second.runtime_data.client,
+            "async_get_contacts_response",
+            second_mock,
+        ),
+        pytest.raises(ServiceValidationError),
+    ):
+        await hass.services.async_call(
+            DOMAIN,
+            SERVICE_SEARCH_CONTACTS,
+            {
+                ATTR_SESSION_ID: "shared",
+                ATTR_PATTERN: "James",
+            },
+            blocking=True,
+            return_response=True,
+        )
+
+    first_mock.assert_not_awaited()
+    second_mock.assert_not_awaited()
 
 
 async def test_search_contacts_filters_without_dropping_attributes(hass) -> None:
@@ -142,7 +233,7 @@ async def test_search_contacts_filters_without_dropping_attributes(hass) -> None
     response_mock = AsyncMock(return_value=CONTACTS_API_RESPONSE)
 
     with patch.object(
-        WWebJSApiClient,
+        entry.runtime_data.client,
         "async_get_contacts_response",
         response_mock,
     ):
@@ -150,7 +241,6 @@ async def test_search_contacts_filters_without_dropping_attributes(hass) -> None
             DOMAIN,
             SERVICE_SEARCH_CONTACTS,
             {
-                ATTR_CONFIG_ENTRY_ID: entry.entry_id,
                 ATTR_SESSION_ID: "alpha",
                 ATTR_PATTERN: "^James$",
             },
@@ -170,7 +260,7 @@ async def test_search_contacts_rejects_invalid_regex(hass) -> None:
 
     with (
         patch.object(
-            WWebJSApiClient,
+            entry.runtime_data.client,
             "async_get_contacts_response",
             response_mock,
         ),
@@ -180,7 +270,6 @@ async def test_search_contacts_rejects_invalid_regex(hass) -> None:
             DOMAIN,
             SERVICE_SEARCH_CONTACTS,
             {
-                ATTR_CONFIG_ENTRY_ID: entry.entry_id,
                 ATTR_SESSION_ID: "alpha",
                 ATTR_PATTERN: "[",
             },
