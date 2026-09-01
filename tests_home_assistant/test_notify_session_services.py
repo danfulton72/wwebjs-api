@@ -155,7 +155,7 @@ async def test_notify_send_message_without_title_sends_plain_message(hass) -> No
 
 
 async def test_notify_send_message_rejects_ambiguous_sessions(hass) -> None:
-    """Test the notifier never guesses which WhatsApp account should send."""
+    """Test the notifier requires a session when several accounts can send."""
     entry = await _setup_entry(hass, sessions=["ABCD", "EFGH"])
     send_mock = AsyncMock(return_value={"success": True})
 
@@ -174,6 +174,74 @@ async def test_notify_send_message_rejects_ambiguous_sessions(hass) -> None:
         )
 
     send_mock.assert_not_awaited()
+
+
+async def test_notify_send_message_selects_session_when_multiple_exist(hass) -> None:
+    """Test an explicit session ID selects the sending WhatsApp account."""
+    entry = await _setup_entry(hass, sessions=["ABCD", "EFGH"])
+    send_mock = AsyncMock(return_value={"success": True})
+
+    with patch.object(entry.runtime_data.client, "async_send_message", send_mock):
+        await hass.services.async_call(
+            NOTIFY_DOMAIN,
+            SERVICE_NOTIFY_SEND_MESSAGE,
+            {
+                ATTR_SESSION_ID: "EFGH",
+                ATTR_MESSAGE: "Hello from EFGH",
+                ATTR_TARGET: "447745160674@c.us",
+            },
+            blocking=True,
+        )
+
+    send_mock.assert_awaited_once_with(
+        "EFGH",
+        {
+            "content": "Hello from EFGH",
+            "chatId": "447745160674@c.us",
+            "contentType": "string",
+        },
+    )
+
+
+async def test_notify_send_message_routes_selected_session_to_owning_connection(hass) -> None:
+    """Test session selection routes across multiple WhatsApp HA connections."""
+    first = await _setup_entry(
+        hass,
+        url="http://first-wwebjs.local:3000",
+        sessions=["FIRST"],
+    )
+    second = await _setup_entry(
+        hass,
+        url="http://second-wwebjs.local:3000",
+        sessions=["SECOND"],
+    )
+    first_send = AsyncMock(return_value={"success": True})
+    second_send = AsyncMock(return_value={"success": True})
+
+    with (
+        patch.object(first.runtime_data.client, "async_send_message", first_send),
+        patch.object(second.runtime_data.client, "async_send_message", second_send),
+    ):
+        await hass.services.async_call(
+            NOTIFY_DOMAIN,
+            SERVICE_NOTIFY_SEND_MESSAGE,
+            {
+                ATTR_SESSION_ID: "SECOND",
+                ATTR_MESSAGE: "Hello from the second connection",
+                ATTR_TARGET: "447745160674@c.us",
+            },
+            blocking=True,
+        )
+
+    first_send.assert_not_awaited()
+    second_send.assert_awaited_once_with(
+        "SECOND",
+        {
+            "content": "Hello from the second connection",
+            "chatId": "447745160674@c.us",
+            "contentType": "string",
+        },
+    )
 
 
 async def test_session_start_uses_configured_connection_and_refreshes(hass) -> None:
