@@ -21,29 +21,51 @@ from custom_components.whatsapp.const import (
 URL = "http://wwebjs.local:3000"
 API_KEY = "test-api-key"
 
-CONTACTS = [
-    {
-        "id": {"_serialized": "441111111111@c.us", "user": "441111111111"},
-        "name": "Alice Adams",
-        "pushname": "Alice",
-        "shortName": "Alice",
-        "number": "441111111111",
-        "isMyContact": True,
-    },
-    {
-        "id": {"_serialized": "447700900999@c.us", "user": "447700900999"},
-        "name": "Robert Example",
-        "pushname": "Bobby",
-        "number": "447700900999",
-        "isMyContact": True,
-    },
-    {
-        "id": {"_serialized": "442222222222@c.us", "user": "442222222222"},
-        "name": "Charlie Example",
-        "number": "442222222222",
-        "isMyContact": True,
-    },
-]
+CONTACTS_API_RESPONSE = {
+    "success": True,
+    "contacts": [
+        {
+            "id": {
+                "server": "c.us",
+                "user": "447350471200",
+                "_serialized": "447350471200@c.us",
+            },
+            "number": "447350471200",
+            "isBusiness": False,
+            "isEnterprise": False,
+            "labels": [],
+            "name": "+44 7350 471200",
+            "shortName": "",
+            "statusMute": False,
+            "type": "in",
+            "isMe": True,
+            "isUser": True,
+            "isGroup": False,
+            "isWAContact": True,
+            "isMyContact": True,
+            "isBlocked": False,
+        },
+        {
+            "id": {
+                "server": "c.us",
+                "user": "447745160674",
+                "_serialized": "447745160674@c.us",
+            },
+            "number": "102817356329071",
+            "isBusiness": False,
+            "labels": [],
+            "name": "James Norval",
+            "shortName": "James",
+            "type": "in",
+            "isMe": False,
+            "isUser": True,
+            "isGroup": False,
+            "isWAContact": True,
+            "isMyContact": True,
+            "isBlocked": False,
+        },
+    ],
+}
 
 
 async def _setup_entry(hass) -> MockConfigEntry:
@@ -80,40 +102,78 @@ async def _setup_entry(hass) -> MockConfigEntry:
     return entry
 
 
-async def test_search_contacts_returns_matching_json(hass) -> None:
-    """Test regex matching and JSON response data from the contacts endpoint."""
+async def test_search_contacts_preserves_all_matching_attributes(hass) -> None:
+    """Test matching contacts preserve the complete API response attributes."""
     entry = await _setup_entry(hass)
-    contacts_mock = AsyncMock(return_value=CONTACTS)
+    response_mock = AsyncMock(return_value=CONTACTS_API_RESPONSE)
 
-    with patch.object(WWebJSApiClient, "async_get_contacts", contacts_mock):
+    with patch.object(
+        WWebJSApiClient,
+        "async_get_contacts_response",
+        response_mock,
+    ):
         response = await hass.services.async_call(
             DOMAIN,
             SERVICE_SEARCH_CONTACTS,
             {
                 ATTR_CONFIG_ENTRY_ID: entry.entry_id,
                 ATTR_SESSION_ID: "alpha",
-                ATTR_PATTERN: "(?i)^alice|447700900999",
+                ATTR_PATTERN: "James|447350471200",
             },
             blocking=True,
             return_response=True,
         )
 
-    contacts_mock.assert_awaited_once_with("alpha")
+    response_mock.assert_awaited_once_with("alpha")
     assert response == {
+        "success": True,
         "session_id": "alpha",
-        "pattern": "(?i)^alice|447700900999",
+        "pattern": "James|447350471200",
         "count": 2,
-        "contacts": CONTACTS[:2],
+        "contacts": CONTACTS_API_RESPONSE["contacts"],
     }
+    assert response["contacts"][0] == CONTACTS_API_RESPONSE["contacts"][0]
+    assert response["contacts"][1] == CONTACTS_API_RESPONSE["contacts"][1]
+
+
+async def test_search_contacts_filters_without_dropping_attributes(hass) -> None:
+    """Test filtering returns one complete raw contact object unchanged."""
+    entry = await _setup_entry(hass)
+    response_mock = AsyncMock(return_value=CONTACTS_API_RESPONSE)
+
+    with patch.object(
+        WWebJSApiClient,
+        "async_get_contacts_response",
+        response_mock,
+    ):
+        response = await hass.services.async_call(
+            DOMAIN,
+            SERVICE_SEARCH_CONTACTS,
+            {
+                ATTR_CONFIG_ENTRY_ID: entry.entry_id,
+                ATTR_SESSION_ID: "alpha",
+                ATTR_PATTERN: "^James$",
+            },
+            blocking=True,
+            return_response=True,
+        )
+
+    assert response["success"] is True
+    assert response["count"] == 1
+    assert response["contacts"] == [CONTACTS_API_RESPONSE["contacts"][1]]
 
 
 async def test_search_contacts_rejects_invalid_regex(hass) -> None:
     """Test invalid regex patterns are reported as service validation errors."""
     entry = await _setup_entry(hass)
-    contacts_mock = AsyncMock(return_value=CONTACTS)
+    response_mock = AsyncMock(return_value=CONTACTS_API_RESPONSE)
 
     with (
-        patch.object(WWebJSApiClient, "async_get_contacts", contacts_mock),
+        patch.object(
+            WWebJSApiClient,
+            "async_get_contacts_response",
+            response_mock,
+        ),
         pytest.raises(ServiceValidationError),
     ):
         await hass.services.async_call(
@@ -128,4 +188,4 @@ async def test_search_contacts_rejects_invalid_regex(hass) -> None:
             return_response=True,
         )
 
-    contacts_mock.assert_not_awaited()
+    response_mock.assert_not_awaited()
