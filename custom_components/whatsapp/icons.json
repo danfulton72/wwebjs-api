@@ -2,6 +2,12 @@
   "services": {
     "search_contacts": {
       "service": "mdi:account-search"
+    },
+    "session_start": {
+      "service": "mdi:play-circle-outline"
+    },
+    "session_end": {
+      "service": "mdi:logout"
     }
   }
 }

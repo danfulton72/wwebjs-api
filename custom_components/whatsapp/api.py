@@ -38,26 +38,53 @@ class WWebJSApiClient:
         """Return authentication headers."""
         return {"x-api-key": self._api_key}
 
-    async def _async_get_json(self, path: str) -> dict[str, Any]:
-        """GET a JSON endpoint and normalize transport/authentication errors."""
+    async def _async_request_json(
+        self,
+        method: str,
+        path: str,
+        *,
+        json_data: dict[str, Any] | None = None,
+    ) -> dict[str, Any]:
+        """Request a JSON endpoint and normalize transport/API errors."""
         try:
-            async with self._session.get(
+            async with self._session.request(
+                method,
                 f"{self._base_url}{path}",
                 headers=self._headers,
+                json=json_data,
                 timeout=_REQUEST_TIMEOUT,
             ) as response:
                 if response.status in (401, 403):
                     raise WWebJSApiError("invalid_auth")
-                response.raise_for_status()
+
                 payload = await response.json()
+                if not isinstance(payload, dict):
+                    raise WWebJSApiError("invalid_response")
+
+                if response.status >= 400:
+                    raise WWebJSApiError(
+                        str(
+                            payload.get("error")
+                            or payload.get("message")
+                            or f"http_{response.status}"
+                        )
+                    )
         except WWebJSApiError:
             raise
         except (ClientError, TimeoutError, ValueError) as err:
             raise WWebJSApiError("cannot_connect") from err
 
-        if not isinstance(payload, dict):
-            raise WWebJSApiError("invalid_response")
         return payload
+
+    async def _async_get_json(self, path: str) -> dict[str, Any]:
+        """GET a JSON endpoint and normalize transport/authentication errors."""
+        return await self._async_request_json("GET", path)
+
+    async def _async_post_json(
+        self, path: str, payload: dict[str, Any]
+    ) -> dict[str, Any]:
+        """POST a JSON endpoint and normalize transport/authentication errors."""
+        return await self._async_request_json("POST", path, json_data=payload)
 
     async def async_get_sessions(self) -> list[str]:
         """Return configured sessions and validate API credentials."""
@@ -69,6 +96,42 @@ class WWebJSApiClient:
         if not isinstance(sessions, list):
             raise WWebJSApiError("invalid_response")
         return [str(session_id) for session_id in sessions]
+
+    async def async_start_session(self, session_id: str) -> dict[str, Any]:
+        """Start a WWebJS session and return the API response."""
+        safe_session_id = quote(session_id, safe="")
+        payload = await self._async_get_json(f"/session/start/{safe_session_id}")
+        if not payload.get("success"):
+            raise WWebJSApiError(
+                str(payload.get("error") or payload.get("message") or "api_error")
+            )
+        return payload
+
+    async def async_end_session(self, session_id: str) -> dict[str, Any]:
+        """Terminate and log out a WWebJS session."""
+        safe_session_id = quote(session_id, safe="")
+        payload = await self._async_get_json(f"/session/terminate/{safe_session_id}")
+        if not payload.get("success"):
+            raise WWebJSApiError(
+                str(payload.get("error") or payload.get("message") or "api_error")
+            )
+        return payload
+
+    async def async_send_message(
+        self,
+        session_id: str,
+        payload: dict[str, Any],
+    ) -> dict[str, Any]:
+        """Send one WWebJS message payload."""
+        safe_session_id = quote(session_id, safe="")
+        response = await self._async_post_json(
+            f"/client/sendMessage/{safe_session_id}", payload
+        )
+        if not response.get("success"):
+            raise WWebJSApiError(
+                str(response.get("error") or response.get("message") or "api_error")
+            )
+        return response
 
     async def async_get_contacts_response(self, session_id: str) -> dict[str, Any]:
         """Return the complete JSON response from the contacts endpoint."""
