@@ -7,7 +7,7 @@ from typing import Any
 
 import voluptuous as vol
 
-from homeassistant.config_entries import ConfigEntryState
+from homeassistant.config_entries import ConfigEntry, ConfigEntryState
 from homeassistant.core import (
     HomeAssistant,
     ServiceCall,
@@ -18,13 +18,7 @@ from homeassistant.exceptions import HomeAssistantError, ServiceValidationError
 from homeassistant.helpers import config_validation as cv
 
 from .api import WWebJSApiError
-from .const import (
-    ATTR_CONFIG_ENTRY_ID,
-    ATTR_PATTERN,
-    ATTR_SESSION_ID,
-    DOMAIN,
-    SERVICE_SEARCH_CONTACTS,
-)
+from .const import ATTR_PATTERN, ATTR_SESSION_ID, DOMAIN, SERVICE_SEARCH_CONTACTS
 
 _SEARCH_PATTERN_MAX_LENGTH = 256
 _SESSION_ID_MAX_LENGTH = 128
@@ -39,7 +33,6 @@ _CONTACT_ID_FIELDS = ("_serialized", "user", "server")
 
 SEARCH_CONTACTS_SCHEMA = vol.Schema(
     {
-        vol.Required(ATTR_CONFIG_ENTRY_ID): cv.string,
         vol.Required(ATTR_SESSION_ID): vol.All(
             cv.string, vol.Length(min=1, max=_SESSION_ID_MAX_LENGTH)
         ),
@@ -76,6 +69,49 @@ def _matches_contact(pattern: re.Pattern[str], contact: dict[str, Any]) -> bool:
     return any(pattern.search(value) for value in _contact_match_values(contact))
 
 
+def _resolve_entry_for_session(hass: HomeAssistant, session_id: str) -> ConfigEntry:
+    """Resolve the loaded WhatsApp HA connection that owns a session."""
+    loaded_entries = [
+        entry
+        for entry in hass.config_entries.async_entries(DOMAIN)
+        if entry.state is ConfigEntryState.LOADED
+    ]
+
+    if not loaded_entries:
+        raise ServiceValidationError(
+            translation_domain=DOMAIN,
+            translation_key="no_loaded_connection",
+        )
+
+    session_entries = [
+        entry
+        for entry in loaded_entries
+        if session_id in entry.runtime_data.data
+    ]
+
+    if len(session_entries) == 1:
+        return session_entries[0]
+
+    if len(session_entries) > 1:
+        raise ServiceValidationError(
+            translation_domain=DOMAIN,
+            translation_key="ambiguous_session_connection",
+            translation_placeholders={"session_id": session_id},
+        )
+
+    # Most installations have one WhatsApp HA connection. Use it directly so a
+    # recently created session can still be queried before the next coordinator
+    # refresh discovers it.
+    if len(loaded_entries) == 1:
+        return loaded_entries[0]
+
+    raise ServiceValidationError(
+        translation_domain=DOMAIN,
+        translation_key="session_connection_not_found",
+        translation_placeholders={"session_id": session_id},
+    )
+
+
 async def async_register_services(hass: HomeAssistant) -> None:
     """Register WhatsApp HA service actions once during integration setup."""
     if hass.services.has_service(DOMAIN, SERVICE_SEARCH_CONTACTS):
@@ -83,21 +119,9 @@ async def async_register_services(hass: HomeAssistant) -> None:
 
     async def async_search_contacts(call: ServiceCall) -> ServiceResponse:
         """Return complete contact objects matching a regular expression."""
-        config_entry_id = call.data[ATTR_CONFIG_ENTRY_ID]
         session_id = call.data[ATTR_SESSION_ID]
         pattern_text = call.data[ATTR_PATTERN]
-
-        entry = hass.config_entries.async_get_entry(config_entry_id)
-        if entry is None or entry.domain != DOMAIN:
-            raise ServiceValidationError(
-                translation_domain=DOMAIN,
-                translation_key="invalid_config_entry",
-            )
-        if entry.state is not ConfigEntryState.LOADED:
-            raise ServiceValidationError(
-                translation_domain=DOMAIN,
-                translation_key="config_entry_not_loaded",
-            )
+        entry = _resolve_entry_for_session(hass, session_id)
 
         try:
             pattern = re.compile(pattern_text)
