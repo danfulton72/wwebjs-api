@@ -55,11 +55,34 @@
           "description": "Python regular expression matched against name, pushname, shortName, verifiedName, number, and contact ID fields. Use (?i) for case-insensitive matching. Matching contacts are returned with all API attributes unchanged."
         }
       }
+    },
+    "session_start": {
+      "name": "Start WhatsApp session",
+      "description": "Start a new WhatsApp Web session on the configured WWebJS API connection. A pairing QR code will appear through the session's Pairing QR code camera entity when available.",
+      "fields": {
+        "session_id": {
+          "name": "Session ID",
+          "description": "The session name to create or start, for example default or personal."
+        }
+      }
+    },
+    "session_end": {
+      "name": "End WhatsApp session",
+      "description": "Terminate and log out a WhatsApp Web session. This removes the stored session login and requires pairing again before it can reconnect.",
+      "fields": {
+        "session_id": {
+          "name": "Session ID",
+          "description": "The session to terminate and log out."
+        }
+      }
     }
   },
   "exceptions": {
     "no_loaded_connection": {
       "message": "No loaded WhatsApp HA connection is available."
+    },
+    "ambiguous_api_connection": {
+      "message": "More than one WhatsApp HA API connection is loaded, so a new session cannot be assigned automatically."
     },
     "ambiguous_session_connection": {
       "message": "Session {session_id} exists on more than one WhatsApp HA connection, so the connection cannot be selected automatically."
@@ -67,11 +90,26 @@
     "session_connection_not_found": {
       "message": "Session {session_id} was not found on any loaded WhatsApp HA connection."
     },
+    "no_session_available": {
+      "message": "No WhatsApp session is currently available for notify.whatsapp_send_message."
+    },
+    "ambiguous_notify_session": {
+      "message": "More than one WhatsApp session is available. notify.whatsapp_send_message will not guess which account should send the message."
+    },
     "invalid_regex": {
       "message": "The regular expression is invalid: {error}"
     },
     "contact_search_failed": {
       "message": "The contacts request failed: {error}"
+    },
+    "session_start_failed": {
+      "message": "The WhatsApp session could not be started: {error}"
+    },
+    "session_end_failed": {
+      "message": "The WhatsApp session could not be ended: {error}"
+    },
+    "notify_send_failed": {
+      "message": "The WhatsApp message could not be sent: {error}"
     }
   },
   "entity": {
