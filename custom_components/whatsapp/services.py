@@ -82,7 +82,7 @@ async def async_register_services(hass: HomeAssistant) -> None:
         return
 
     async def async_search_contacts(call: ServiceCall) -> ServiceResponse:
-        """Return contacts from one session that match a regular expression."""
+        """Return complete contact objects matching a regular expression."""
         config_entry_id = call.data[ATTR_CONFIG_ENTRY_ID]
         session_id = call.data[ATTR_SESSION_ID]
         pattern_text = call.data[ATTR_PATTERN]
@@ -109,7 +109,9 @@ async def async_register_services(hass: HomeAssistant) -> None:
             ) from err
 
         try:
-            contacts = await entry.runtime_data.client.async_get_contacts(session_id)
+            api_response = await entry.runtime_data.client.async_get_contacts_response(
+                session_id
+            )
         except WWebJSApiError as err:
             if err.code == "invalid_auth":
                 entry.async_start_reauth(hass)
@@ -119,14 +121,20 @@ async def async_register_services(hass: HomeAssistant) -> None:
                 translation_placeholders={"error": err.code},
             ) from err
 
+        contacts = api_response["contacts"]
         matches = [
             contact for contact in contacts if _matches_contact(pattern, contact)
         ]
+
+        # Preserve the complete API response envelope and every attribute on each
+        # matching contact. Only the contacts collection is filtered; Home
+        # Assistant-specific search metadata is added alongside the API data.
         return {
+            **api_response,
+            "contacts": matches,
             "session_id": session_id,
             "pattern": pattern_text,
             "count": len(matches),
-            "contacts": matches,
         }
 
     hass.services.async_register(

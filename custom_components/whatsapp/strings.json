@@ -44,7 +44,7 @@
   "services": {
     "search_contacts": {
       "name": "Search contacts",
-      "description": "Return contacts from a WhatsApp session whose identity fields match a Python regular expression.",
+      "description": "Return contacts from a WhatsApp session whose identity fields match a Python regular expression. Every JSON attribute supplied by the contacts API is preserved on each matching contact, including nested ID data, booleans, labels, names, number and future fields.",
       "fields": {
         "config_entry_id": {
           "name": "WhatsApp HA connection",
@@ -56,7 +56,7 @@
         },
         "pattern": {
           "name": "Regular expression",
-          "description": "Python regular expression matched against name, pushname, shortName, verifiedName, number, and contact ID fields. Use (?i) for case-insensitive matching."
+          "description": "Python regular expression matched against name, pushname, shortName, verifiedName, number, and contact ID fields. Use (?i) for case-insensitive matching. Matching contacts are returned with all API attributes unchanged."
         }
       }
     }
