@@ -1,0 +1,17 @@
+search_contacts:
+  fields:
+    config_entry_id:
+      required: true
+      selector:
+        config_entry:
+          integration: whatsapp
+    session_id:
+      required: true
+      example: "default"
+      selector:
+        text:
+    pattern:
+      required: true
+      example: "(?i)alice|447700900123"
+      selector:
+        text:
