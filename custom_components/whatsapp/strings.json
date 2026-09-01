@@ -44,15 +44,11 @@
   "services": {
     "search_contacts": {
       "name": "Search contacts",
-      "description": "Return contacts from a WhatsApp session whose identity fields match a Python regular expression. Every JSON attribute supplied by the contacts API is preserved on each matching contact, including nested ID data, booleans, labels, names, number and future fields.",
+      "description": "Return contacts from a WhatsApp session whose identity fields match a Python regular expression. The WWebJS API connection is selected automatically from the configured WhatsApp HA integration. Every JSON attribute supplied by the contacts API is preserved on each matching contact, including nested ID data, booleans, labels, names, number and future fields.",
       "fields": {
-        "config_entry_id": {
-          "name": "WhatsApp HA connection",
-          "description": "The WhatsApp HA configuration entry that connects to the WWebJS API server."
-        },
         "session_id": {
           "name": "Session ID",
-          "description": "The WWebJS session to search, for example default or personal."
+          "description": "The WWebJS session to search, for example default or personal. The integration automatically uses the configured connection that owns this session."
         },
         "pattern": {
           "name": "Regular expression",
@@ -62,11 +58,14 @@
     }
   },
   "exceptions": {
-    "invalid_config_entry": {
-      "message": "The selected WhatsApp HA configuration entry is invalid."
+    "no_loaded_connection": {
+      "message": "No loaded WhatsApp HA connection is available."
     },
-    "config_entry_not_loaded": {
-      "message": "The selected WhatsApp HA configuration entry is not loaded."
+    "ambiguous_session_connection": {
+      "message": "Session {session_id} exists on more than one WhatsApp HA connection, so the connection cannot be selected automatically."
+    },
+    "session_connection_not_found": {
+      "message": "Session {session_id} was not found on any loaded WhatsApp HA connection."
     },
     "invalid_regex": {
       "message": "The regular expression is invalid: {error}"
