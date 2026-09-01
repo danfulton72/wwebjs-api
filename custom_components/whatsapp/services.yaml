@@ -10,3 +10,19 @@ search_contacts:
       example: "(?i)alice|447700900123"
       selector:
         text:
+
+session_start:
+  fields:
+    session_id:
+      required: true
+      example: "default"
+      selector:
+        text:
+
+session_end:
+  fields:
+    session_id:
+      required: true
+      example: "default"
+      selector:
+        text:
