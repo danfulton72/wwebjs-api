@@ -74,6 +74,9 @@ _MEDIA_URL_SCHEMA = vol.Any(
 
 NOTIFY_SEND_MESSAGE_SCHEMA = vol.Schema(
     {
+        vol.Optional(ATTR_SESSION_ID): vol.All(
+            cv.string, vol.Length(min=1, max=_SESSION_ID_MAX_LENGTH)
+        ),
         vol.Required(ATTR_MESSAGE): vol.All(cv.string, vol.Length(min=1)),
         vol.Optional(ATTR_TITLE): cv.string,
         vol.Required(ATTR_TARGET): vol.Any(
@@ -178,8 +181,16 @@ def _resolve_entry_for_session(hass: HomeAssistant, session_id: str) -> ConfigEn
     )
 
 
-def _resolve_notify_session(hass: HomeAssistant) -> tuple[ConfigEntry, str]:
-    """Resolve the single discovered session used by the legacy-style notifier."""
+def _resolve_notify_session(
+    hass: HomeAssistant, requested_session_id: str | None = None
+) -> tuple[ConfigEntry, str]:
+    """Resolve the session used by the legacy-style notifier."""
+    if requested_session_id:
+        return (
+            _resolve_entry_for_session(hass, requested_session_id),
+            requested_session_id,
+        )
+
     candidates = [
         (entry, str(session_id))
         for entry in _loaded_entries(hass)
@@ -211,17 +222,6 @@ def _normalize_media_urls(value: str | list[str] | None) -> list[str]:
         return []
     values = value.splitlines() if isinstance(value, str) else value
     return [url.strip() for url in values if url.strip()]
-
-
-def _raise_api_error(entry: ConfigEntry, err: WWebJSApiError, key: str) -> None:
-    """Start reauthentication when needed and raise a Home Assistant error."""
-    if err.code == "invalid_auth":
-        entry.async_start_reauth(entry.runtime_data.hass)
-    raise HomeAssistantError(
-        translation_domain=DOMAIN,
-        translation_key=key,
-        translation_placeholders={"error": err.code},
-    ) from err
 
 
 async def async_register_services(hass: HomeAssistant) -> None:
@@ -339,8 +339,9 @@ async def async_register_services(hass: HomeAssistant) -> None:
     if not hass.services.has_service(NOTIFY_DOMAIN, SERVICE_NOTIFY_SEND_MESSAGE):
 
         async def async_notify_send_message(call: ServiceCall) -> None:
-            """Send text and optional media using the configured WhatsApp session."""
-            entry, session_id = _resolve_notify_session(hass)
+            """Send text and optional media using a configured WhatsApp session."""
+            requested_session_id = call.data.get(ATTR_SESSION_ID)
+            entry, session_id = _resolve_notify_session(hass, requested_session_id)
             message = call.data[ATTR_MESSAGE]
             title = call.data.get(ATTR_TITLE)
             targets = _normalize_targets(call.data[ATTR_TARGET])
@@ -389,10 +390,21 @@ async def async_register_services(hass: HomeAssistant) -> None:
             {
                 "name": "Send WhatsApp message",
                 "description": (
-                    "Send a WhatsApp message using the session configured by WhatsApp HA. "
-                    "Compatible with the legacy WAPI notifier message/title/target/data pattern."
+                    "Send a WhatsApp message using WhatsApp HA. With one session the "
+                    "sending session is selected automatically; with multiple sessions "
+                    "supply Session ID. Compatible with the legacy WAPI notifier "
+                    "message/title/target/data pattern."
                 ),
                 "fields": {
+                    ATTR_SESSION_ID: {
+                        "description": (
+                            "Optional WhatsApp session ID. Leave blank when only one "
+                            "session is available; choose the sending session when "
+                            "multiple sessions are connected."
+                        ),
+                        "example": "ABCD",
+                        "selector": {"text": {}},
+                    },
                     ATTR_MESSAGE: {
                         "required": True,
                         "description": "Message text to send.",
