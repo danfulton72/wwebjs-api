@@ -122,6 +122,7 @@ async def test_notify_send_message_uses_caption_for_media(hass) -> None:
         ),
     ]
 
+
 async def test_notify_send_message_without_title_sends_plain_message(hass) -> None:
     """Test title remains optional while the legacy target field is retained."""
     entry = await _setup_entry(hass)
