@@ -1,0 +1,25 @@
+name: Pinned Actions Check
+
+on:
+  pull_request:
+    branches:
+      - main
+
+permissions:
+  contents: read
+
+jobs:
+  verify:
+    name: Verify Pinned Actions
+    runs-on: ubuntu-latest
+    steps:
+      - name: Checkout repository
+        uses: actions/checkout@df4cb1c069e1874edd31b4311f1884172cec0e10 # v6.0.3
+      - name: Reject mutable action references
+        shell: bash
+        run: |
+          set -euo pipefail
+          if grep -R --line-number --perl-regexp '^\s*uses:\s*[^#\s]+@(?![0-9a-f]{40}(?:\s|$))' .github/workflows; then
+            echo 'Every GitHub Action must be pinned to a full 40-character commit SHA.' >&2
+            exit 1
+          fi

@@ -1,0 +1,8 @@
+# Default ownership for engineering-quality and security-sensitive changes.
+* @danfulton72
+
+/.github/ @danfulton72
+/src/wwebjs/ @danfulton72
+/package.json @danfulton72
+/package-lock.json @danfulton72
+/Dockerfile @danfulton72

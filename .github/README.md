@@ -1,0 +1,1 @@
+Repository automation and quality policy live under `.github/`. Pull-request validation is designed to be deterministic; live WhatsApp integration is opt-in. Security-sensitive actions are pinned to immutable commit SHAs and documented branch-protection checks are intended to be required on `main`.
