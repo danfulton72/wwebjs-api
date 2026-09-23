@@ -347,25 +347,31 @@ async def async_register_services(hass: HomeAssistant) -> None:
             targets = _normalize_targets(call.data[ATTR_TARGET])
             data = call.data.get(ATTR_DATA) or {}
             media_urls = _normalize_media_urls(data.get(ATTR_MEDIA_URL))
-            content = f"*{title}* \n{message}" if title else message
+            content = f"*{title}*\n{message}" if title else message
 
             try:
                 for target in targets:
-                    await entry.runtime_data.client.async_send_message(
-                        session_id,
-                        {
-                            "content": content,
-                            "chatId": target,
-                            "contentType": "string",
-                        },
-                    )
-                    for media_url in media_urls:
-                        await entry.runtime_data.client.async_send_message(
-                            session_id,
-                            {
+                    if media_urls:
+                        for index, media_url in enumerate(media_urls):
+                            payload: dict[str, Any] = {
                                 "content": media_url,
                                 "chatId": target,
                                 "contentType": "MessageMediaFromURL",
+                            }
+                            if index == 0:
+                                payload["options"] = {"caption": content}
+
+                            await entry.runtime_data.client.async_send_message(
+                                session_id,
+                                payload,
+                            )
+                    else:
+                        await entry.runtime_data.client.async_send_message(
+                            session_id,
+                            {
+                                "content": content,
+                                "chatId": target,
+                                "contentType": "string",
                             },
                         )
             except WWebJSApiError as err:
