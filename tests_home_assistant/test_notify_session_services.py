@@ -70,8 +70,8 @@ async def _setup_entry(
     return entry
 
 
-async def test_notify_send_message_preserves_wapi_call_pattern(hass) -> None:
-    """Test the legacy WAPI message/title/target/media pattern is preserved."""
+async def test_notify_send_message_uses_caption_for_media(hass) -> None:
+    """Test notification text is attached to the first media message as a caption."""
     entry = await _setup_entry(hass)
     send_mock = AsyncMock(return_value={"success": True})
 
@@ -101,20 +101,15 @@ async def test_notify_send_message_preserves_wapi_call_pattern(hass) -> None:
         call(
             "ABCD",
             {
-                "content": (
-                    "*Your Garage Door Friend* \n"
-                    "The garage door has been open for 10 minutes."
-                ),
-                "chatId": "447745160674@c.us",
-                "contentType": "string",
-            },
-        ),
-        call(
-            "ABCD",
-            {
                 "content": "https://example.com/one.jpg",
                 "chatId": "447745160674@c.us",
                 "contentType": "MessageMediaFromURL",
+                "options": {
+                    "caption": (
+                        "*Your Garage Door Friend*\n"
+                        "The garage door has been open for 10 minutes."
+                    )
+                },
             },
         ),
         call(
